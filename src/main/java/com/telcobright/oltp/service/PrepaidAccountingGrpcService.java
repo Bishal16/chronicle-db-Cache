@@ -27,8 +27,24 @@ public class PrepaidAccountingGrpcService implements PrepaidAccounting {
     @Inject
     PackageAccountCache packageAccountCache;
 
+    @Inject
+    StartupGate startupGate;
+
+
     @Override
     public Uni<UpdateResponse> updateBalanceThroughJdbcCache(Deltas request) {
+        if (startupGate.isReplayInProgress()) {
+            return Uni.createFrom().failure(
+                    new IllegalStateException("Service not ready. Pending replay in progress.")
+            );
+
+//            return Uni.createFrom().item(() -> UpdateResponse.newBuilder()
+//                    .setMessage("Hello, world!")  // assuming your UpdateResponse has a "message" field
+//                    .setCount(0)
+//                    .build());
+
+
+        }
         List<PackageAccDelta> deltasList = request.getItemsList().stream()
                 .map(delta -> new PackageAccDelta(
                         delta.getDbName(),
