@@ -1,22 +1,26 @@
 package com.telcobright.oltp.dbCache;
 
-
 import com.telcobright.oltp.entity.PackageAccDelta;
 import com.telcobright.oltp.entity.PackageAccount;
 import com.telcobright.oltp.queue.chronicle.ChronicleInstance;
+import com.telcobright.oltp.service.PendingStatusChecker;
 import com.zaxxer.hikari.HikariDataSource;
 import io.quarkus.runtime.Startup;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import net.openhft.chronicle.queue.ExcerptAppender;
-//import org.springframework.stereotype.Component;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import io.quarkus.scheduler.Scheduled;
+
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 @Startup
@@ -29,27 +33,47 @@ public class PackageAccountCache extends JdbcCache<Long, PackageAccount, List<Pa
     @Inject
     ChronicleInstance chronicleInstance;
 
+    @Inject
+    PendingStatusChecker pendingStatusChecker;
 
-//    @Inject
-//    ExcerptAppender appender;
+    private static final Logger logger = LoggerFactory.getLogger(PackageAccountCache.class);
+
+    private final AtomicBoolean isInitialized = new AtomicBoolean(false);
 
     public PackageAccountCache() {
-        super(); // Calls no-args constructor
+        super();
     }
 
-    @PostConstruct
-    void init() {
-        if (dataSource == null) {
-            throw new IllegalStateException("HikariDataSource not injected");
+//    @PostConstruct
+//    void init() throws Exception {
+//        if (dataSource == null) {
+//            throw new IllegalStateException("HikariDataSource not injected");
+//        }
+//        super.setDataSource(dataSource);
+//
+//        initFromDb();
+//
+//    }
+    @Scheduled(every = "1s", delay = 0, concurrentExecution = Scheduled.ConcurrentExecution.SKIP)
+    void initCacheAfterReplay() {
+        if (isInitialized.get()) {
+            return;
         }
-        super.setDataSource(dataSource);
 
-        try {
-            initFromDb();
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
+        if (!pendingStatusChecker.isReplayInProgress()) {
+            try {
+                logger.info("🟢 Replay complete. Initializing cache...");
+                super.setDataSource(dataSource);
+                initFromDb();
+                isInitialized.set(true);
+            } catch (Exception e) {
+                logger.error("❌ Failed to initialize cache", e);
+            }
+        } else {
+            logger.info("⏳ Waiting for replay to finish before initializing cache...");
         }
     }
+
 
     @Override
     public void initFromDb() throws SQLException {
@@ -74,58 +98,47 @@ public class PackageAccountCache extends JdbcCache<Long, PackageAccount, List<Pa
 
                         pkgIdVsPkgAccountCache.put(rs.getLong("id"), acc);
                     }
-                    System.err.println("cache initialized successfully. account count: " + pkgIdVsPkgAccountCache.size());
+                    logger.info("Cache initialized successfully. Account count: {}", pkgIdVsPkgAccountCache.size());
                 }
                 catch (Exception e) {
-                    System.err.println("couldn't initialize cache from db");
+                    logger.error("Couldn't initialize cache from db");
                     throw new RuntimeException(e);
                 }
             }
         }
     }
 
-//    protected void writeWALForUpdate_old(List<PackageAccDelta> entries) {
-//        appender.writeDocument(w -> {
-//            w.write("action").int32(CrudActionType.Update.ordinal());  // Write enum as int
-//            w.write("size").int32(entries.size());
-//            for (PackageAccDelta entry : entries) {
-//                w.write("dbName").text(entry.dbName);
-//                w.write("accountId").int32(entry.accountId);
-//                w.write("amount").text(entry.amount.toPlainString());
-//            }
-//        });
-//        long lastIndex = appender.lastIndexAppended();
-//        System.out.println("Wrote WAL entry at index: " + lastIndex);
-//
-//    }
     @Override
     protected void writeWALForUpdate(List<PackageAccDelta> entries) {
-    ExcerptAppender appender = chronicleInstance.getAppender();
-    appender.writeDocument(w -> {
-        w.write("action").int32(CrudActionType.Update.ordinal());  // Keep as int32
-        w.write("size").int32(entries.size());
-        for (PackageAccDelta entry : entries) {
-            w.write("dbName").text(entry.dbName);
-            w.write("accountId").int64(entry.accountId);  // 🔄 Fix this line
-            w.write("amount").text(entry.amount.toPlainString());
-        }
-    });
-    long lastIndex = appender.lastIndexAppended();
-    System.out.println("Wrote WAL entry at index: " + lastIndex);
-}
+        ExcerptAppender appender = chronicleInstance.getAppender();
+        appender.writeDocument(w -> {
+            w.write("action").int32(CrudActionType.Update.ordinal());
+            w.write("size").int32(entries.size());
+            for (PackageAccDelta entry : entries) {
+                w.write("dbName").text(entry.dbName);
+                w.write("accountId").int64(entry.accountId);
+                w.write("amount").text(entry.amount.toPlainString());
+            }
+        });
+        long lastIndex = appender.lastIndexAppended();
+        System.out.println("Wrote WAL entry at index: " + lastIndex);
+    }
 
     @Override
-    protected Consumer<List<PackageAccDelta>> getUpdateAction() {
+    protected Consumer<List<PackageAccDelta>> updateCache() {
         return packageAccDeltas -> {
             for (PackageAccDelta delta : packageAccDeltas) {
-                PackageAccount targetAcc= pkgIdVsPkgAccountCache.get(delta.accountId);//super.entities
+                PackageAccount targetAcc= pkgIdVsPkgAccountCache.get(delta.accountId);
                 if(targetAcc==null){
                    throw new RuntimeException("Package account [id: ]" +delta.accountId +
                            " not found in cache");
                 }
                 targetAcc.setLastAmount(delta.amount);
-                targetAcc.setBalanceAfter(targetAcc.getBalanceAfter().add(delta.amount));
                 targetAcc.setBalanceBefore(targetAcc.getBalanceAfter());
+                targetAcc.setBalanceAfter(targetAcc.getBalanceAfter().subtract(delta.amount));
+
+                System.out.println("\nReserved Amount = " + delta.amount);
+                System.out.println("Cache Status: Database = " + delta.dbName + ", ID_PackageAccount = " + delta.accountId + ", Balance After = " + targetAcc.getBalanceAfter() + ", Balance Before = " + targetAcc.getBalanceBefore() + "\n");
             }
         };
     }
@@ -150,7 +163,7 @@ public class PackageAccountCache extends JdbcCache<Long, PackageAccount, List<Pa
     protected Consumer<PackageAccount> getInsertAction() {
         return newEntity -> {
             try {
-                pkgIdVsPkgAccountCache.put(newEntity.getId(),newEntity);//super.entities
+                pkgIdVsPkgAccountCache.put(newEntity.getId(),newEntity);
             } catch (Exception e) {
                 throw new RuntimeException("Duplicate Entity, packageAccount [id: ]" +
                         newEntity.getId() + " already exists in the cache.");

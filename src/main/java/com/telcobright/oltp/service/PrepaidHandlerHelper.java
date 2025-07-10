@@ -1,14 +1,14 @@
 package com.telcobright.oltp.service;
 
 import com.telcobright.oltp.entity.PackageAccount;
-import org.springframework.stereotype.Service;
+//import org.springframework.stereotype.Service;
 
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-@Service
+//@Service
 public class PrepaidHandlerHelper {
 
     public List<Object[]> getPurchasedPackageAccountsByIdPartner(String database, Connection connection, int partnerId) {

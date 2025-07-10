@@ -29,7 +29,7 @@ public class ConsumerFactory {
         this.chronicleInstance = chronicleInstance;
     }
     @Inject
-    StartupGate startupGate;
+    PendingStatusChecker pendingStatusChecker;
 
     @PostConstruct
     public void createConsumersAndSubscribe() {
@@ -40,9 +40,9 @@ public class ConsumerFactory {
                 dataSource,
                 offsetTable,
                 replayOnStart,
-                startupGate
+                pendingStatusChecker
         );
-        chronicleInstance.subscribe(consumer);
 
+        chronicleInstance.subscribe(consumer);
     }
 }

@@ -42,7 +42,7 @@ public class ChronicleJvmArgsVerifier {
 
             throw new RuntimeException("Missing required JVM module opens/exports for Chronicle Queue.");
         } else {
-            System.out.println("\n✅ Chronicle JVM argument check PASSED.");
+//            System.out.println("\n✅ Chronicle JVM argument check PASSED.");
         }
     }
 }

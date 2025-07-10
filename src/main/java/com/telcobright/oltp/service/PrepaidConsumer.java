@@ -26,7 +26,7 @@ public class PrepaidConsumer implements Runnable, ConsumerToQueue<PackageAccDelt
     private final boolean replayOnStart;
     private final ExcerptTailer tailer;
     private final ExcerptAppender appender;
-    private final StartupGate startupGate;
+    private final PendingStatusChecker pendingStatusChecker;
 
 
     private volatile boolean running = true;
@@ -38,7 +38,7 @@ public class PrepaidConsumer implements Runnable, ConsumerToQueue<PackageAccDelt
             HikariDataSource dataSource,
             String offsetTable,
             boolean replayOnStart,
-            StartupGate startupGate
+            PendingStatusChecker pendingStatusChecker
     ) {
         this.queue = queue;
         this.appender = appender;
@@ -46,7 +46,7 @@ public class PrepaidConsumer implements Runnable, ConsumerToQueue<PackageAccDelt
         this.dataSource = dataSource;
         this.offsetTable = offsetTable;
         this.replayOnStart = replayOnStart;
-        this.startupGate = startupGate;
+        this.pendingStatusChecker = pendingStatusChecker;
         this.tailer = queue.createTailer(consumerName);
 
         logger.info("✅ Initialized consumer '{}' for queue: {}", consumerName, queue);
@@ -55,17 +55,17 @@ public class PrepaidConsumer implements Runnable, ConsumerToQueue<PackageAccDelt
 
         try {
             if (replayOnStart && hasPendingMessages()) {
-                logger.info("▶️ Consumer '{}' replaying pending messages on startup", consumerName);
+                logger.info("▶️ Starting pending msg replay with consumer {}", consumerName);
 
-                startupGate.markReplayInProgress();
+                pendingStatusChecker.markReplayInProgress();
                 replayPendingMessages();
-
+//                replay simulation
 //                for (int i = 1; i <= 60; i++) {
 //                    Thread.sleep(1000);
 //                    System.out.println("Elapsed: " + i + " second(s)");
 //                }
-
-                startupGate.markReplayComplete();
+                pendingStatusChecker.markReplayComplete();
+                logger.info("▶️ Done with replay pending msg {}", consumerName);
             }
         }
         catch (Exception e) {
@@ -83,17 +83,16 @@ public class PrepaidConsumer implements Runnable, ConsumerToQueue<PackageAccDelt
                             ")")) {
                 createStmt.executeUpdate();
             }
-
             try {
                 long lastSavedOffset = getLastOffsetFromDb(conn);
                 logger.info("last saved offset in db for consumer: {}, is: {}", consumerName, lastSavedOffset);
-                System.out.println("last saved offset from db : " + lastSavedOffset);
                 tailer.moveToIndex(lastSavedOffset + 1);
-
-            } catch (SQLException e) {
+            }
+            catch (SQLException e) {
                 logger.info("✅ No previous offset for consumer '{}'. Starting fresh.", consumerName);
             }
-        } catch (SQLException e) {
+        }
+        catch (SQLException e) {
             logger.error("❌ Failed to load offset for consumer '{}': {}", consumerName, e.getMessage(), e);
             throw new RuntimeException("Offset load failed", e);
         }
@@ -103,10 +102,9 @@ public class PrepaidConsumer implements Runnable, ConsumerToQueue<PackageAccDelt
     public void run() {
         logger.info("▶️ Consumer '{}' started", consumerName);
         processLiveMessages();
-        logger.info("⏹️ Consumer '{}' stopped", consumerName);
     }
 
-    private boolean hasPendingMessagesold() throws SQLException {
+    private boolean hasPendingMessagesOld() throws SQLException {
         long dbOffset;
         try (Connection conn = dataSource.getConnection()) {
             dbOffset = getLastOffsetFromDb(conn);
@@ -126,11 +124,9 @@ public class PrepaidConsumer implements Runnable, ConsumerToQueue<PackageAccDelt
         try (Connection conn = dataSource.getConnection()) {
             dbOffset = getLastOffsetFromDb(conn);
         }
-
         try {
-            // Use tailer instead of appender to reliably get the next available index
-            ExcerptTailer tailer = queue.createTailer("prepaid-consumer"); // Named tailer ensures correct position
-            long nextQueueIndex = tailer.index(); // This returns the next readable index for this tailer
+            ExcerptTailer tailer = queue.createTailer("prepaid-consumer");
+            long nextQueueIndex = tailer.index();
 
             logger.info("📌 DB offset: {}, Next queue index from tailer: {}", dbOffset, nextQueueIndex);
 
@@ -141,7 +137,6 @@ public class PrepaidConsumer implements Runnable, ConsumerToQueue<PackageAccDelt
         }
     }
 
-
     private void replayPendingMessages() {
         while (running) {
             try (Connection conn = dataSource.getConnection()) {
@@ -149,7 +144,7 @@ public class PrepaidConsumer implements Runnable, ConsumerToQueue<PackageAccDelt
 
                 try (DocumentContext dc = tailer.readingDocument()) {
                     if (!dc.isPresent())
-                        break;  // No more messages to read, exit loop
+                        break;
 
                     processMessage(dc, conn);
 
@@ -164,7 +159,6 @@ public class PrepaidConsumer implements Runnable, ConsumerToQueue<PackageAccDelt
         }
     }
 
-
     private void processLiveMessages() {
         while (running) {
             try (Connection conn = dataSource.getConnection()) {
@@ -175,7 +169,6 @@ public class PrepaidConsumer implements Runnable, ConsumerToQueue<PackageAccDelt
                         processMessage(dc, conn);
                         conn.commit();
                     } else {
-                        // No message present — avoid busy loop with a small sleep
                         Thread.sleep(100);
                     }
                 } catch (Exception e) {
@@ -187,7 +180,6 @@ public class PrepaidConsumer implements Runnable, ConsumerToQueue<PackageAccDelt
             }
         }
     }
-
 
     private void processMessage(DocumentContext dc, Connection conn) throws SQLException {
         Wire wire = dc.wire();
@@ -208,14 +200,10 @@ public class PrepaidConsumer implements Runnable, ConsumerToQueue<PackageAccDelt
             persistProcessedDeltaLogs(conn, consumerName, tailer.index(), dbName, accountId, amount);
         }
 
-        // Save offset once after processing the entire batch
         saveOffsetToDb(conn, tailer.index());
 
         logger.info("✅ Consumer '{}' processed full batch at offset: {}", consumerName, tailer.index());
     }
-
-
-
 
     private void saveOffsetToDb(Connection conn, long offset) throws SQLException {
         try (PreparedStatement stmt = conn.prepareStatement(
@@ -232,12 +220,10 @@ public class PrepaidConsumer implements Runnable, ConsumerToQueue<PackageAccDelt
         }
     }
 
-
     @Override
     public void updatePackageAccountTable(PackageAccDelta delta, Connection conn) throws SQLException {
         try (PreparedStatement stmt = conn.prepareStatement(
-                "UPDATE packageaccount SET lastAmount=?, balanceBefore=balanceAfter, balanceAfter=balanceAfter+? WHERE id_packageaccount=?")
-        ) {
+                "UPDATE packageaccount SET lastAmount=-?, balanceBefore=balanceAfter, balanceAfter=balanceAfter-? WHERE id_packageaccount=?")) {
             stmt.setBigDecimal(1, delta.amount);
             stmt.setBigDecimal(2, delta.amount);
             stmt.setLong(3, delta.accountId);
@@ -261,7 +247,6 @@ public class PrepaidConsumer implements Runnable, ConsumerToQueue<PackageAccDelt
             }
         }
     }
-
 
     private void persistProcessedDeltaLogs(Connection conn, String consumerName, long offset, String dbName, long accountId, BigDecimal amount) throws SQLException {
         String sql = """
@@ -291,4 +276,5 @@ public class PrepaidConsumer implements Runnable, ConsumerToQueue<PackageAccDelt
             logger.info("❌ Consumer '{}' shutdown error: {}", consumerName, e.getMessage());
         }
     }
+
 }

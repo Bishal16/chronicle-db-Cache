@@ -7,8 +7,6 @@ import net.openhft.chronicle.queue.ChronicleQueue;
 import net.openhft.chronicle.queue.ExcerptAppender;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
-
-
 @ApplicationScoped
 public class ChronicleQueueProducer {
 

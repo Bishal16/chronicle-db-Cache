@@ -55,6 +55,11 @@
             <artifactId>quarkus-junit5</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-scheduler</artifactId>
+        </dependency>
+
         <!-- https://mvnrepository.com/artifact/net.openhft/chronicle-queue -->
 <!--        <dependency>-->
 <!--            <groupId>net.openhft</groupId>-->
@@ -87,10 +92,10 @@
 <!--            <artifactId>chronicle-wire</artifactId>-->
 <!--            <version>2.21.92</version>  &lt;!&ndash; Required for DocumentContext &ndash;&gt;-->
 <!--        </dependency>-->
-        <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-spring-data-jpa</artifactId>
-        </dependency>
+<!--        <dependency>-->
+<!--            <groupId>io.quarkus</groupId>-->
+<!--            <artifactId>quarkus-spring-data-jpa</artifactId>-->
+<!--        </dependency>-->
 
         <!-- Add these to your existing dependencies -->
 <!--        <dependency>-->
