@@ -44,16 +44,7 @@ public class PackageAccountCache extends JdbcCache<Long, PackageAccount, List<Pa
         super();
     }
 
-//    @PostConstruct
-//    void init() throws Exception {
-//        if (dataSource == null) {
-//            throw new IllegalStateException("HikariDataSource not injected");
-//        }
-//        super.setDataSource(dataSource);
-//
-//        initFromDb();
-//
-//    }
+
     @Scheduled(every = "1s", delay = 0, concurrentExecution = Scheduled.ConcurrentExecution.SKIP)
     void initCacheAfterReplay() {
         if (isInitialized.get()) {

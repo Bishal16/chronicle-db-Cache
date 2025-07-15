@@ -4,6 +4,9 @@ import com.telcobright.oltp.dbCache.CrudActionType;
 import com.telcobright.oltp.entity.PackageAccDelta;
 import com.telcobright.oltp.queue.chronicle.ConsumerToQueue;
 import com.zaxxer.hikari.HikariDataSource;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import net.openhft.chronicle.queue.ChronicleQueue;
 import net.openhft.chronicle.queue.ExcerptAppender;
 import net.openhft.chronicle.queue.ExcerptTailer;
@@ -28,8 +31,8 @@ public class PrepaidConsumer implements Runnable, ConsumerToQueue<PackageAccDelt
     private final ExcerptAppender appender;
     private final PendingStatusChecker pendingStatusChecker;
 
-
     private volatile boolean running = true;
+
     private static final Logger logger = LoggerFactory.getLogger(PrepaidConsumer.class);
     public PrepaidConsumer(
             ChronicleQueue queue,
@@ -77,22 +80,22 @@ public class PrepaidConsumer implements Runnable, ConsumerToQueue<PackageAccDelt
     private void setTailerToLastProcessedOffset() {
         try (Connection conn = dataSource.getConnection()) {
             try (PreparedStatement createStmt = conn.prepareStatement(
-                    "CREATE TABLE IF NOT EXISTS " + offsetTable + " (" +
+                    "CREATE TABLE IF NOT EXISTS " + "telcobright" + "." + offsetTable + " (" +
                             "consumer_id VARCHAR(255) PRIMARY KEY, " +
                             "last_offset BIGINT NOT NULL" +
                             ")")) {
                 createStmt.executeUpdate();
             }
+
             try {
                 long lastSavedOffset = getLastOffsetFromDb(conn);
                 logger.info("last saved offset in db for consumer: {}, is: {}", consumerName, lastSavedOffset);
                 tailer.moveToIndex(lastSavedOffset + 1);
-            }
-            catch (SQLException e) {
+            } catch (SQLException e) {
                 logger.info("✅ No previous offset for consumer '{}'. Starting fresh.", consumerName);
             }
-        }
-        catch (SQLException e) {
+
+        } catch (SQLException e) {
             logger.error("❌ Failed to load offset for consumer '{}': {}", consumerName, e.getMessage(), e);
             throw new RuntimeException("Offset load failed", e);
         }
@@ -206,10 +209,9 @@ public class PrepaidConsumer implements Runnable, ConsumerToQueue<PackageAccDelt
     }
 
     private void saveOffsetToDb(Connection conn, long offset) throws SQLException {
-        try (PreparedStatement stmt = conn.prepareStatement(
-                "INSERT INTO " + offsetTable + " (consumer_id, last_offset) VALUES (?, ?) " +
-                        "ON DUPLICATE KEY UPDATE last_offset = ?")
-        ) {
+        String sql = "INSERT INTO " + "telcobright" + "." + offsetTable + " (consumer_id, last_offset) VALUES (?, ?) " +
+                "ON DUPLICATE KEY UPDATE last_offset = ?";
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, consumerName);
             stmt.setLong(2, offset);
             stmt.setLong(3, offset);
@@ -223,7 +225,7 @@ public class PrepaidConsumer implements Runnable, ConsumerToQueue<PackageAccDelt
     @Override
     public void updatePackageAccountTable(PackageAccDelta delta, Connection conn) throws SQLException {
         try (PreparedStatement stmt = conn.prepareStatement(
-                "UPDATE packageaccount SET lastAmount=-?, balanceBefore=balanceAfter, balanceAfter=balanceAfter-? WHERE id_packageaccount=?")) {
+                "UPDATE " + delta.dbName + ".packageaccount SET lastAmount=-?, balanceBefore=balanceAfter, balanceAfter=balanceAfter-? WHERE id_packageaccount=?")) {
             stmt.setBigDecimal(1, delta.amount);
             stmt.setBigDecimal(2, delta.amount);
             stmt.setLong(3, delta.accountId);
@@ -234,9 +236,9 @@ public class PrepaidConsumer implements Runnable, ConsumerToQueue<PackageAccDelt
         }
     }
 
-    private long getLastOffsetFromDb(Connection conn) throws SQLException {
-        try (PreparedStatement stmt = conn.prepareStatement(
-                "SELECT last_offset FROM " + offsetTable + " WHERE consumer_id = ?")) {
+    public long getLastOffsetFromDb(Connection conn) throws SQLException {
+        String sql = "SELECT last_offset FROM " + "telcobright" + "." + offsetTable + " WHERE consumer_id = ?";
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, consumerName);
             try (ResultSet rs = stmt.executeQuery()) {
                 if (rs.next()) {
@@ -249,14 +251,16 @@ public class PrepaidConsumer implements Runnable, ConsumerToQueue<PackageAccDelt
     }
 
     private void persistProcessedDeltaLogs(Connection conn, String consumerName, long offset, String dbName, long accountId, BigDecimal amount) throws SQLException {
-        String sql = """
-        INSERT INTO delta_log (consumer_name, processed_at, offset, db_name, account_id, amount)
+        // Sanitize or validate dbName if it comes from user input
+        String sql = String.format("""
+        INSERT INTO %s.delta_log (consumer_name, processed_at, offset, db_name, account_id, amount)
         VALUES (?, NOW(), ?, ?, ?, ?)
-    """;
+    """, dbName);
+
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, consumerName);
             ps.setLong(2, offset);
-            ps.setString(3, dbName);
+            ps.setString(3, dbName); // still setting db_name as a column value
             ps.setLong(4, accountId);
             if (amount != null) {
                 ps.setBigDecimal(5, amount);
