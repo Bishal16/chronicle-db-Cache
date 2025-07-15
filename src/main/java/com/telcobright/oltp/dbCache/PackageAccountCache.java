@@ -88,6 +88,14 @@ public class PackageAccountCache extends JdbcCache<Long, PackageAccount, List<Pa
                         acc.setIsSelected(rs.getBoolean("isSelected"));
 
                         pkgIdVsPkgAccountCache.put(rs.getLong("id"), acc);
+                        System.out.printf("Cached PackageAccount [id = %d] -> Name: %s, LastAmount: %s, BalanceBefore: %s, BalanceAfter: %s, UOM: %s\n",
+                                rs.getLong("id"),
+                                acc.getName(),
+                                acc.getLastAmount(),
+                                acc.getBalanceBefore(),
+                                acc.getBalanceAfter(),
+                                acc.getUom());
+
                     }
                     logger.info("Cache initialized successfully. Account count: {}", pkgIdVsPkgAccountCache.size());
                 }
@@ -124,9 +132,11 @@ public class PackageAccountCache extends JdbcCache<Long, PackageAccount, List<Pa
                    throw new RuntimeException("Package account [id: ]" +delta.accountId +
                            " not found in cache");
                 }
-                targetAcc.setLastAmount(delta.amount);
-                targetAcc.setBalanceBefore(targetAcc.getBalanceAfter());
-                targetAcc.setBalanceAfter(targetAcc.getBalanceAfter().subtract(delta.amount));
+//                targetAcc.setLastAmount(delta.amount);
+//                targetAcc.setBalanceBefore(targetAcc.getBalanceAfter());
+//                targetAcc.setBalanceAfter(targetAcc.getBalanceAfter().subtract(delta.amount));
+
+                targetAcc.applyDelta(delta.amount);
 
                 System.out.println("\nReserved Amount = " + delta.amount);
                 System.out.println("Cache Status: Database = " + delta.dbName + ", ID_PackageAccount = " + delta.accountId + ", Balance After = " + targetAcc.getBalanceAfter() + ", Balance Before = " + targetAcc.getBalanceBefore() + "\n");

@@ -1,11 +1,14 @@
 package com.telcobright.oltp.entity;
 
 import jakarta.persistence.*;
+import lombok.Data;
+
 import java.math.BigDecimal;
 import java.util.Optional;
 
 @Entity
 @Table(name = "packageaccount")
+@Data
 public class PackageAccount {
 
     @Id
@@ -59,65 +62,72 @@ public class PackageAccount {
         return entityManager.merge(this);
     }
 
+    public synchronized void applyDelta(BigDecimal deltaAmount) {
+        this.lastAmount = deltaAmount;
+        this.balanceBefore = this.balanceAfter;
+        this.balanceAfter = this.balanceAfter.subtract(deltaAmount);
+    }
+
+
     // === Getters and Setters ===
 
-    public Long getId() {
-        return id;
-    }
-
-    public Long getPackagePurchaseId() {
-        return packagePurchaseId;
-    }
-
-    public void setPackagePurchaseId(Long packagePurchaseId) {
-        this.packagePurchaseId = packagePurchaseId;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public BigDecimal getLastAmount() {
-        return lastAmount;
-    }
-
-    public void setLastAmount(BigDecimal lastAmount) {
-        this.lastAmount = lastAmount;
-    }
-
-    public BigDecimal getBalanceBefore() {
-        return balanceBefore;
-    }
-
-    public void setBalanceBefore(BigDecimal balanceBefore) {
-        this.balanceBefore = balanceBefore;
-    }
-
-    public BigDecimal getBalanceAfter() {
-        return balanceAfter;
-    }
-
-    public void setBalanceAfter(BigDecimal balanceAfter) {
-        this.balanceAfter = balanceAfter;
-    }
-
-    public String getUom() {
-        return uom;
-    }
-
-    public void setUom(String uom) {
-        this.uom = uom;
-    }
-
-    public Boolean getIsSelected() {
-        return isSelected;
-    }
-
-    public void setIsSelected(Boolean selected) {
-        isSelected = selected;
-    }
+//    public Long getId() {
+//        return id;
+//    }
+//
+//    public Long getPackagePurchaseId() {
+//        return packagePurchaseId;
+//    }
+//
+//    public void setPackagePurchaseId(Long packagePurchaseId) {
+//        this.packagePurchaseId = packagePurchaseId;
+//    }
+//
+//    public String getName() {
+//        return name;
+//    }
+//
+//    public void setName(String name) {
+//        this.name = name;
+//    }
+//
+//    public BigDecimal getLastAmount() {
+//        return lastAmount;
+//    }
+//
+//    public void setLastAmount(BigDecimal lastAmount) {
+//        this.lastAmount = lastAmount;
+//    }
+//
+//    public BigDecimal getBalanceBefore() {
+//        return balanceBefore;
+//    }
+//
+//    public void setBalanceBefore(BigDecimal balanceBefore) {
+//        this.balanceBefore = balanceBefore;
+//    }
+//
+//    public BigDecimal getBalanceAfter() {
+//        return balanceAfter;
+//    }
+//
+//    public void setBalanceAfter(BigDecimal balanceAfter) {
+//        this.balanceAfter = balanceAfter;
+//    }
+//
+//    public String getUom() {
+//        return uom;
+//    }
+//
+//    public void setUom(String uom) {
+//        this.uom = uom;
+//    }
+//
+//    public Boolean getIsSelected() {
+//        return isSelected;
+//    }
+//
+//    public void setIsSelected(Boolean selected) {
+//        isSelected = selected;
+//    }
 }
