@@ -6,7 +6,6 @@ import com.telcobright.oltp.queue.chronicle.ChronicleInstance;
 import com.telcobright.oltp.service.PendingStatusChecker;
 import com.zaxxer.hikari.HikariDataSource;
 import io.quarkus.runtime.Startup;
-import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import net.openhft.chronicle.queue.ExcerptAppender;
@@ -53,7 +52,7 @@ public class PackageAccountCache extends JdbcCache<Long, PackageAccount, List<Pa
 
         if (!pendingStatusChecker.isReplayInProgress()) {
             try {
-                logger.info("🟢 Replay complete. Initializing cache...");
+                logger.info("Pending replay completed ✅. Initializing cache...");
                 super.setDataSource(dataSource);
                 initFromDb();
                 isInitialized.set(true);
@@ -88,13 +87,8 @@ public class PackageAccountCache extends JdbcCache<Long, PackageAccount, List<Pa
                         acc.setIsSelected(rs.getBoolean("isSelected"));
 
                         pkgIdVsPkgAccountCache.put(rs.getLong("id"), acc);
-                        System.out.printf("Cached PackageAccount [id = %d] -> Name: %s, LastAmount: %s, BalanceBefore: %s, BalanceAfter: %s, UOM: %s\n",
-                                rs.getLong("id"),
-                                acc.getName(),
-                                acc.getLastAmount(),
-                                acc.getBalanceBefore(),
-                                acc.getBalanceAfter(),
-                                acc.getUom());
+
+                        logPackageAccountInfo(rs, acc);
 
                     }
                     logger.info("Cache initialized successfully. Account count: {}", pkgIdVsPkgAccountCache.size());
@@ -132,14 +126,25 @@ public class PackageAccountCache extends JdbcCache<Long, PackageAccount, List<Pa
                    throw new RuntimeException("Package account [id: ]" +delta.accountId +
                            " not found in cache");
                 }
-//                targetAcc.setLastAmount(delta.amount);
-//                targetAcc.setBalanceBefore(targetAcc.getBalanceAfter());
-//                targetAcc.setBalanceAfter(targetAcc.getBalanceAfter().subtract(delta.amount));
 
                 targetAcc.applyDelta(delta.amount);
 
                 System.out.println("\nReserved Amount = " + delta.amount);
-                System.out.println("Cache Status: Database = " + delta.dbName + ", ID_PackageAccount = " + delta.accountId + ", Balance After = " + targetAcc.getBalanceAfter() + ", Balance Before = " + targetAcc.getBalanceBefore() + "\n");
+
+
+                System.out.printf("""
+                        Database           = %s
+                        ID_PackageAccount  = %d
+                        Balance Before     = %s
+                        Balance After      = %s
+                    ----------------------------------------
+                    """,
+                        delta.dbName,
+                        delta.accountId,
+                        targetAcc.getBalanceBefore(),
+                        targetAcc.getBalanceAfter()
+                );
+
             }
         };
     }
@@ -171,4 +176,27 @@ public class PackageAccountCache extends JdbcCache<Long, PackageAccount, List<Pa
             }
         };
     }
+
+    private static void logPackageAccountInfo(ResultSet rs, PackageAccount acc) throws SQLException {
+        String logMessage = String.format("""
+        Cached PackageAccount:
+            ID              = %d
+            Name            = %s
+            LastAmount      = %s
+            BalanceBefore   = %s
+            BalanceAfter    = %s
+            UOM             = %s
+        ----------------------------------------
+        """,
+                rs.getLong("id"),
+                acc.getName(),
+                acc.getLastAmount(),
+                acc.getBalanceBefore(),
+                acc.getBalanceAfter(),
+                acc.getUom()
+        );
+
+        logger.info(logMessage);
+    }
+
 }

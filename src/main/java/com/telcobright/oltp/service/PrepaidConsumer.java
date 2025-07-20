@@ -34,15 +34,9 @@ public class PrepaidConsumer implements Runnable, ConsumerToQueue<PackageAccDelt
     private volatile boolean running = true;
 
     private static final Logger logger = LoggerFactory.getLogger(PrepaidConsumer.class);
-    public PrepaidConsumer(
-            ChronicleQueue queue,
-            ExcerptAppender appender,
-            String consumerName,
-            HikariDataSource dataSource,
-            String offsetTable,
-            boolean replayOnStart,
-            PendingStatusChecker pendingStatusChecker
-    ) {
+    public PrepaidConsumer( ChronicleQueue queue, ExcerptAppender appender, String consumerName,
+            HikariDataSource dataSource, String offsetTable, boolean replayOnStart, PendingStatusChecker pendingStatusChecker) {
+
         this.queue = queue;
         this.appender = appender;
         this.consumerName = consumerName;
@@ -56,18 +50,11 @@ public class PrepaidConsumer implements Runnable, ConsumerToQueue<PackageAccDelt
 
         setTailerToLastProcessedOffset();
 
+        //pendingStatusChecker.markReplayInProgress();
         try {
             if (replayOnStart && hasPendingMessages()) {
                 logger.info("▶️ Starting pending msg replay with consumer {}", consumerName);
-
-                pendingStatusChecker.markReplayInProgress();
                 replayPendingMessages();
-//                replay simulation
-//                for (int i = 1; i <= 60; i++) {
-//                    Thread.sleep(1000);
-//                    System.out.println("Elapsed: " + i + " second(s)");
-//                }
-                pendingStatusChecker.markReplayComplete();
                 logger.info("▶️ Done with replay pending msg {}", consumerName);
             }
         }
@@ -75,6 +62,7 @@ public class PrepaidConsumer implements Runnable, ConsumerToQueue<PackageAccDelt
             logger.error("Error checking pending messages: ", e);
             throw new RuntimeException(e);
         }
+        pendingStatusChecker.markReplayComplete();
     }
 
     private void setTailerToLastProcessedOffset() {

@@ -40,7 +40,6 @@ public class PackageAccount {
     public PackageAccount() {
     }
 
-    // Example constructor for quick object creation
     public PackageAccount(Long packagePurchaseId, String name, BigDecimal lastAmount,
                           BigDecimal balanceBefore, BigDecimal balanceAfter, String uom, Boolean isSelected) {
         this.packagePurchaseId = packagePurchaseId;
@@ -51,8 +50,6 @@ public class PackageAccount {
         this.uom = uom;
         this.isSelected = Optional.ofNullable(isSelected).orElse(false);
     }
-
-    // === ACTIVE RECORD STYLE METHODS ===
 
     public void insert(EntityManager entityManager) {
         entityManager.persist(this);
@@ -67,67 +64,4 @@ public class PackageAccount {
         this.balanceBefore = this.balanceAfter;
         this.balanceAfter = this.balanceAfter.subtract(deltaAmount);
     }
-
-
-    // === Getters and Setters ===
-
-//    public Long getId() {
-//        return id;
-//    }
-//
-//    public Long getPackagePurchaseId() {
-//        return packagePurchaseId;
-//    }
-//
-//    public void setPackagePurchaseId(Long packagePurchaseId) {
-//        this.packagePurchaseId = packagePurchaseId;
-//    }
-//
-//    public String getName() {
-//        return name;
-//    }
-//
-//    public void setName(String name) {
-//        this.name = name;
-//    }
-//
-//    public BigDecimal getLastAmount() {
-//        return lastAmount;
-//    }
-//
-//    public void setLastAmount(BigDecimal lastAmount) {
-//        this.lastAmount = lastAmount;
-//    }
-//
-//    public BigDecimal getBalanceBefore() {
-//        return balanceBefore;
-//    }
-//
-//    public void setBalanceBefore(BigDecimal balanceBefore) {
-//        this.balanceBefore = balanceBefore;
-//    }
-//
-//    public BigDecimal getBalanceAfter() {
-//        return balanceAfter;
-//    }
-//
-//    public void setBalanceAfter(BigDecimal balanceAfter) {
-//        this.balanceAfter = balanceAfter;
-//    }
-//
-//    public String getUom() {
-//        return uom;
-//    }
-//
-//    public void setUom(String uom) {
-//        this.uom = uom;
-//    }
-//
-//    public Boolean getIsSelected() {
-//        return isSelected;
-//    }
-//
-//    public void setIsSelected(Boolean selected) {
-//        isSelected = selected;
-//    }
 }
