@@ -19,6 +19,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
@@ -44,7 +45,7 @@ public class PackageAccountCache extends JdbcCache<Long, PackageAccount, List<Pa
     }
 
 
-    @Scheduled(every = "1s", delay = 0, concurrentExecution = Scheduled.ConcurrentExecution.SKIP)
+    @Scheduled(every = "2s", delay = 0, concurrentExecution = Scheduled.ConcurrentExecution.SKIP)
     void initCacheAfterReplay() {
         if (isInitialized.get()) {
             return;
@@ -130,8 +131,6 @@ public class PackageAccountCache extends JdbcCache<Long, PackageAccount, List<Pa
                 targetAcc.applyDelta(delta.amount);
 
                 System.out.println("\nReserved Amount = " + delta.amount);
-
-
                 System.out.printf("""
                         Database           = %s
                         ID_PackageAccount  = %d
@@ -144,7 +143,6 @@ public class PackageAccountCache extends JdbcCache<Long, PackageAccount, List<Pa
                         targetAcc.getBalanceBefore(),
                         targetAcc.getBalanceAfter()
                 );
-
             }
         };
     }
@@ -197,6 +195,10 @@ public class PackageAccountCache extends JdbcCache<Long, PackageAccount, List<Pa
         );
 
         logger.info(logMessage);
+    }
+
+    public ConcurrentHashMap<Long, PackageAccount> getAccountCache() {
+        return this.pkgIdVsPkgAccountCache;
     }
 
 }

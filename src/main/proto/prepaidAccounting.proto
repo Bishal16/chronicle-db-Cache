@@ -5,8 +5,7 @@ option java_package = "prepaidaccounting";
 option java_outer_classname = "PrepaidAccountingProto";
 
 service PrepaidAccounting {
-  rpc GetBalance (GetBalanceRequest) returns (GetBalanceResponse);
-  rpc updateBalance(Deltas) returns (UpdateResponse);
+  rpc GetBalance (GetBalanceRequest) returns (BalanceResponse);
   rpc updateBalanceThroughJdbcCache(Deltas) returns (UpdateResponse);
 }
 
@@ -16,8 +15,12 @@ message Delta {
   double amount = 3;
 }
 
-message UpdateBalanceResponse {
-  string status = 1;
+message Deltas {
+  repeated Delta deltas = 1;
+}
+
+message UpdateResponse {
+  bool success = 1;
   string message = 2;
 }
 
@@ -26,16 +29,13 @@ message GetBalanceRequest {
   int64 idPackageAcc = 2;
 }
 
-message GetBalanceResponse {
-  string status = 1;
+message BalanceResponse {
+  bool status = 1;
   double balance = 2;
+  string message = 3;
 }
 
-message Deltas {
-  repeated Delta items = 1;
-}
 
-message UpdateResponse {
-  int32 count = 1;
-}
+
+
 

@@ -5,14 +5,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 @ApplicationScoped
 public class PendingStatusChecker {
-    private final AtomicBoolean replayInProgress = new AtomicBoolean(true); // starts as false
+    private final AtomicBoolean replayInProgress = new AtomicBoolean(true);
 
     public boolean isReplayInProgress() {
         return replayInProgress.get();
-    }
-
-    public void markReplayInProgress() {
-        replayInProgress.set(true);
     }
 
     public void markReplayComplete() {
