@@ -4,9 +4,6 @@ import com.telcobright.oltp.dbCache.CrudActionType;
 import com.telcobright.oltp.entity.PackageAccDelta;
 import com.telcobright.oltp.queue.chronicle.ConsumerToQueue;
 import com.zaxxer.hikari.HikariDataSource;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import net.openhft.chronicle.queue.ChronicleQueue;
 import net.openhft.chronicle.queue.ExcerptAppender;
 import net.openhft.chronicle.queue.ExcerptTailer;
@@ -15,11 +12,14 @@ import net.openhft.chronicle.wire.Wire;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Properties;
 
 public class PrepaidConsumer implements Runnable, ConsumerToQueue<PackageAccDelta> {
     private final ChronicleQueue queue;
@@ -67,8 +67,9 @@ public class PrepaidConsumer implements Runnable, ConsumerToQueue<PackageAccDelt
 
     private void setTailerToLastProcessedOffset() {
         try (Connection conn = dataSource.getConnection()) {
+            String dbName = loadDbNameFromProperties();
             try (PreparedStatement createStmt = conn.prepareStatement(
-                    "CREATE TABLE IF NOT EXISTS " + "telcobright" + "." + offsetTable + " (" +
+                    "CREATE TABLE IF NOT EXISTS " + dbName + "." + offsetTable + " (" +
                             "consumer_id VARCHAR(255) PRIMARY KEY, " +
                             "last_offset BIGINT NOT NULL" +
                             ")")) {
@@ -197,7 +198,8 @@ public class PrepaidConsumer implements Runnable, ConsumerToQueue<PackageAccDelt
     }
 
     private void saveOffsetToDb(Connection conn, long offset) throws SQLException {
-        String sql = "INSERT INTO " + "telcobright" + "." + offsetTable + " (consumer_id, last_offset) VALUES (?, ?) " +
+        String dbName = loadDbNameFromProperties();
+        String sql = "INSERT INTO " + dbName + "." + offsetTable + " (consumer_id, last_offset) VALUES (?, ?) " +
                 "ON DUPLICATE KEY UPDATE last_offset = ?";
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, consumerName);
@@ -225,7 +227,8 @@ public class PrepaidConsumer implements Runnable, ConsumerToQueue<PackageAccDelt
     }
 
     public long getLastOffsetFromDb(Connection conn) throws SQLException {
-        String sql = "SELECT last_offset FROM " + "telcobright" + "." + offsetTable + " WHERE consumer_id = ?";
+        String dbName = loadDbNameFromProperties();
+        String sql = "SELECT last_offset FROM " + dbName + "." + offsetTable + " WHERE consumer_id = ?";
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, consumerName);
             try (ResultSet rs = stmt.executeQuery()) {
@@ -266,6 +269,22 @@ public class PrepaidConsumer implements Runnable, ConsumerToQueue<PackageAccDelt
             logger.info("✅ Consumer '{}' shutdown complete", consumerName);
         } catch (Exception e) {
             logger.info("❌ Consumer '{}' shutdown error: {}", consumerName, e.getMessage());
+        }
+    }
+    private String loadDbNameFromProperties() {
+        Properties properties = new Properties();
+        try (InputStream input = PrepaidConsumer.class.getClassLoader()
+                .getResourceAsStream("application.properties")) {
+
+            if (input == null) {
+                throw new RuntimeException("❌ application.properties not found in classpath");
+            }
+
+            properties.load(input);
+            return properties.getProperty("db.name");
+
+        } catch (IOException e) {
+            throw new RuntimeException("❌ Failed to load db.name from properties file", e);
         }
     }
 
