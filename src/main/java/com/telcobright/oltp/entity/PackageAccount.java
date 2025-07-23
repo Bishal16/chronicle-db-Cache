@@ -60,6 +60,9 @@ public class PackageAccount {
     }
 
     public synchronized void applyDelta(BigDecimal deltaAmount) {
+        if (deltaAmount == null || deltaAmount.signum() <= 0) {
+            throw new IllegalArgumentException("Delta amount must be a positive value for subtract operation");
+        }
         this.lastAmount = deltaAmount;
         this.balanceBefore = this.balanceAfter;
         this.balanceAfter = this.balanceAfter.subtract(deltaAmount);

@@ -1,6 +1,7 @@
 package com.telcobright.oltp.service;
 
 import com.telcobright.oltp.entity.PackageAccount;
+import jakarta.enterprise.context.ApplicationScoped;
 //import org.springframework.stereotype.Service;
 
 import java.sql.*;
@@ -9,6 +10,7 @@ import java.util.List;
 import java.util.Optional;
 
 //@Service
+@ApplicationScoped
 public class PrepaidHandlerHelper {
 
     public List<Object[]> getPurchasedPackageAccountsByIdPartner(String database, Connection connection, int partnerId) {

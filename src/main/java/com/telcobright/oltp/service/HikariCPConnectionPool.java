@@ -2,7 +2,9 @@ package com.telcobright.oltp.service;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
+import jakarta.enterprise.context.ApplicationScoped;
 
+@ApplicationScoped
 public class HikariCPConnectionPool {
 
     private static HikariDataSource dataSource;

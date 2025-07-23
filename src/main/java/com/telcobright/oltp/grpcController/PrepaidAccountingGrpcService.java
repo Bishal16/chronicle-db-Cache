@@ -62,7 +62,7 @@ public class PrepaidAccountingGrpcService implements PrepaidAccounting {
                 BigDecimal currentBalance = targetAccount.getBalanceAfter();
                 if (currentBalance.compareTo(delta.amount) < 0) {
                     throw new IllegalStateException("insufficient balance. Pkg Id : "
-                            + delta.accountId + ", Db name : " + delta.dbName + "current balance :"
+                            + delta.accountId + ", Db name : " + delta.dbName + " current balance :"
                             + currentBalance + ", requested balance : " + delta.amount);
                 }
             }

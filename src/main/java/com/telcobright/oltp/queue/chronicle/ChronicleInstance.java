@@ -1,5 +1,6 @@
 package com.telcobright.oltp.queue.chronicle;
 
+import jakarta.annotation.PreDestroy;
 import net.openhft.chronicle.queue.ChronicleQueue;
 import net.openhft.chronicle.queue.ExcerptAppender;
 import net.openhft.chronicle.queue.RollCycle;
@@ -45,5 +46,9 @@ public class ChronicleInstance {
         executorService.shutdown();
         queue.close();
         logger.info("✅ Chronicle queue and all consumers shutdown complete.");
+    }
+    @PreDestroy
+    public void cleanup() {
+        shutdown();  // ensure graceful shutdown of queue, threads, consumers
     }
 }
