@@ -30,6 +30,10 @@ public abstract class JdbcCache<Tkey, TEntity, TDelta> {
         }
         this.dataSource = dataSource;
     }
+    public HikariDataSource getDataSource() {
+        return this.dataSource;
+    }
+
 
     protected void setJdbcUrl(String jdbcUrl) {
         if (this.jdbcUrl != null) {

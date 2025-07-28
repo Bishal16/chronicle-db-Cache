@@ -45,16 +45,40 @@ public class PackageAccountCache extends JdbcCache<Long, PackageAccount, List<Pa
     }
 
 
+//    @Scheduled(every = "2s", delay = 0, concurrentExecution = Scheduled.ConcurrentExecution.SKIP)
+//    void initCacheAfterReplay1() {
+//        if (isInitialized.get()) {
+//            return;
+//        }
+//
+//        if (!pendingStatusChecker.isReplayInProgress()) {
+//            try {
+//                logger.info("Pending replay completed ✅. Initializing cache...");
+//                super.setDataSource(dataSource);
+//                initFromDb();
+//                isInitialized.set(true);
+//            } catch (Exception e) {
+//                logger.error("❌ Failed to initialize cache", e);
+//            }
+//        } else {
+//            logger.info("⏳ Waiting for replay to finish before initializing cache...");
+//        }
+//    }
+
     @Scheduled(every = "2s", delay = 0, concurrentExecution = Scheduled.ConcurrentExecution.SKIP)
     void initCacheAfterReplay() {
-        if (isInitialized.get()) {
-            return;
-        }
+        if (isInitialized.get()) return;
 
         if (!pendingStatusChecker.isReplayInProgress()) {
             try {
                 logger.info("Pending replay completed ✅. Initializing cache...");
-                super.setDataSource(dataSource);
+
+                if (super.getDataSource() == null) {
+                    super.setDataSource(dataSource);
+                } else {
+                    logger.info("ℹ️ DataSource already set, skipping re-initialization.");
+                }
+
                 initFromDb();
                 isInitialized.set(true);
             } catch (Exception e) {
@@ -64,6 +88,8 @@ public class PackageAccountCache extends JdbcCache<Long, PackageAccount, List<Pa
             logger.info("⏳ Waiting for replay to finish before initializing cache...");
         }
     }
+
+
 
 
     @Override

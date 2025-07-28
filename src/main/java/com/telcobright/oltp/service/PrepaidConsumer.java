@@ -152,26 +152,49 @@ public class PrepaidConsumer implements Runnable, ConsumerToQueue<PackageAccDelt
     }
 
     private void processLiveMessages() {
-        while (running) {
-            try (Connection conn = dataSource.getConnection()) {
-                conn.setAutoCommit(false);
+        try (Connection conn = dataSource.getConnection()) {
+            conn.setAutoCommit(false);
 
+            while (running) {
                 try (DocumentContext dc = tailer.readingDocument()) {
                     if (dc.isPresent()) {
-                        processMessage(dc, conn);
-                        conn.commit();
+                        try {
+                            processMessage(dc, conn);
+                            conn.commit();
+                        } catch (Exception e) {
+                            conn.rollback();
+                            logger.error("❌ Error processing message: ", e);
+                        }
                     } else {
                         Thread.sleep(100);
                     }
-                } catch (Exception e) {
-                    conn.rollback();
-                    logger.error("❌ Error while processing live messages for consumer '{}': {}", consumerName, e.getMessage(), e);
                 }
-            } catch (SQLException e) {
-                logger.error("❌ Error obtaining DB connection or interrupted for consumer '{}': {}", consumerName, e.getMessage(), e);
             }
+        } catch (SQLException | InterruptedException e) {
+            logger.error("❌ DB connection error in live message processing", e);
         }
     }
+//    private void processLiveMessages() {
+//        while (running) {
+//            try (Connection conn = dataSource.getConnection()) {
+//                conn.setAutoCommit(false);
+//
+//                try (DocumentContext dc = tailer.readingDocument()) {
+//                    if (dc.isPresent()) {
+//                        processMessage(dc, conn);
+//                        conn.commit();
+//                    } else {
+//                        Thread.sleep(100);
+//                    }
+//                } catch (Exception e) {
+//                    conn.rollback();
+//                    logger.error("❌ Error while processing live messages for consumer '{}': {}", consumerName, e.getMessage(), e);
+//                }
+//            } catch (SQLException e) {
+//                logger.error("❌ Error obtaining DB connection or interrupted for consumer '{}': {}", consumerName, e.getMessage(), e);
+//            }
+//        }
+//    }
 
     private void processMessage(DocumentContext dc, Connection conn) throws SQLException {
         Wire wire = dc.wire();

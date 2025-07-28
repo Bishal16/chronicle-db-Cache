@@ -24,7 +24,7 @@ public class HikariInitializer {
     @PostConstruct
     void init() {
         hikariDataSource = HikariCPConnectionPool.initialize(
-                datasourceUrl, username, password, 1
+                datasourceUrl, username, password, 2
         );
         System.out.println("✅ HikariCP pool initialized with URL: " + datasourceUrl);
     }
