@@ -7,6 +7,7 @@ option java_outer_classname = "PrepaidAccountingProto";
 service PrepaidAccounting {
   rpc GetBalance (GetBalanceRequest) returns (BalanceResponse);
   rpc updateBalanceThroughJdbcCache(Deltas) returns (UpdateResponse);
+  rpc insertPackageAccount(InsertPackageRequest) returns (InsertPackageResponse);
 }
 
 message Delta {
@@ -34,6 +35,28 @@ message BalanceResponse {
   double balance = 2;
   string message = 3;
 }
+
+message PackageAccount {
+  int64 id = 1;
+  int64 packagePurchaseId = 2;
+  string name = 3;
+  string lastAmount = 4;
+  string balanceBefore = 5;
+  string balanceAfter = 6;
+  string uom = 7;
+  bool isSelected = 8;
+}
+
+message InsertPackageRequest {
+  string dbName = 1;
+  PackageAccount pkgAcc = 2;
+}
+
+message InsertPackageResponse {
+  bool success = 1;
+  string message = 2;
+}
+
 
 
 

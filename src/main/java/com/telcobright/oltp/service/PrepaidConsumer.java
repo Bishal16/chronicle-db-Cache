@@ -1,7 +1,9 @@
 package com.telcobright.oltp.service;
 
 import com.telcobright.oltp.dbCache.CrudActionType;
+import com.telcobright.oltp.dbCache.PackageAccountCache;
 import com.telcobright.oltp.entity.PackageAccDelta;
+import com.telcobright.oltp.entity.PackageAccount;
 import com.telcobright.oltp.queue.chronicle.ConsumerToQueue;
 import com.zaxxer.hikari.HikariDataSource;
 import net.openhft.chronicle.queue.ChronicleQueue;
@@ -30,12 +32,13 @@ public class PrepaidConsumer implements Runnable, ConsumerToQueue<PackageAccDelt
     private final ExcerptTailer tailer;
     private final ExcerptAppender appender;
     private final PendingStatusChecker pendingStatusChecker;
+    private final PackageAccountCache packageAccountCache;
 
     private volatile boolean running = true;
 
     private static final Logger logger = LoggerFactory.getLogger(PrepaidConsumer.class);
-    public PrepaidConsumer( ChronicleQueue queue, ExcerptAppender appender, String consumerName,
-            HikariDataSource dataSource, String offsetTable, boolean replayOnStart, PendingStatusChecker pendingStatusChecker) {
+    public PrepaidConsumer(ChronicleQueue queue, ExcerptAppender appender, String consumerName,
+                           HikariDataSource dataSource, String offsetTable, boolean replayOnStart, PendingStatusChecker pendingStatusChecker, PackageAccountCache packageAccountCache) {
 
         this.queue = queue;
         this.appender = appender;
@@ -44,6 +47,7 @@ public class PrepaidConsumer implements Runnable, ConsumerToQueue<PackageAccDelt
         this.offsetTable = offsetTable;
         this.replayOnStart = replayOnStart;
         this.pendingStatusChecker = pendingStatusChecker;
+        this.packageAccountCache = packageAccountCache;
         this.tailer = queue.createTailer(consumerName);
 
         logger.info("✅ Initialized consumer '{}' for queue: {}", consumerName, queue);
@@ -203,21 +207,40 @@ public class PrepaidConsumer implements Runnable, ConsumerToQueue<PackageAccDelt
         int size = wire.read("size").int32();
         logger.info("Processing action={} with {} deltas", actionType, size);
 
-        for (int i = 0; i < size; i++) {
-            String dbName = wire.read("dbName").text();
-            long accountId = wire.read("accountId").int64();
-            String amountStr = wire.read("amount").text();
+        if(actionType.equals(CrudActionType.Update)){
+            for (int i = 0; i < size; i++) {
+                String dbName = wire.read("dbName").text();
+                long accountId = wire.read("accountId").int64();
+                String amountStr = wire.read("amount").text();
 
-            BigDecimal amount = amountStr == null || amountStr.isEmpty() ? null : new BigDecimal(amountStr);
-            PackageAccDelta delta = new PackageAccDelta(dbName, accountId, amount);
+                BigDecimal amount = amountStr == null || amountStr.isEmpty() ? null : new BigDecimal(amountStr);
+                PackageAccDelta delta = new PackageAccDelta(dbName, accountId, amount);
 
-            updatePackageAccountTable(delta, conn);
-            persistProcessedDeltaLogs(conn, consumerName, tailer.index(), dbName, accountId, amount);
+                updatePackageAccountTable(delta, conn);
+                persistProcessedDeltaLogs(conn, consumerName, tailer.index(), dbName, accountId, amount);
+            }
+
+            saveOffsetToDb(conn, tailer.index());
+
+            logger.info("✅ Consumer '{}' processed update of full batch at offset: {}", consumerName, tailer.index());
+        }
+        else if(actionType.equals(CrudActionType.Insert)){
+            long idPackageAcc = wire.read("idPackageAccount").int64();
+
+            PackageAccount newPackageAccount = new PackageAccount();
+
+            newPackageAccount.setPackagePurchaseId(wire.read("packagePurchaseId").int64());
+            newPackageAccount.setName(wire.read("name").text());
+            newPackageAccount.setLastAmount(new BigDecimal(wire.read("lastAmount").text()));
+            newPackageAccount.setBalanceBefore(new BigDecimal(wire.read("balanceBefore").text()));
+            newPackageAccount.setBalanceAfter(new BigDecimal(wire.read("balanceAfter").text()));
+            newPackageAccount.setUom(wire.read("uom").text());
+            newPackageAccount.setIsSelected(Boolean.valueOf(wire.read("").text()));
+
+            packageAccountCache.getAccountCache().put(idPackageAcc, newPackageAccount);
+            logger.info("✅ Consumer '{}' processed insert of full batch at offset: {}", consumerName, tailer.index());
         }
 
-        saveOffsetToDb(conn, tailer.index());
-
-        logger.info("✅ Consumer '{}' processed full batch at offset: {}", consumerName, tailer.index());
     }
 
     private void saveOffsetToDb(Connection conn, long offset) throws SQLException {

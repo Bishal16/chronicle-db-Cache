@@ -178,6 +178,7 @@ public class PackageAccountCache extends JdbcCache<Long, PackageAccount, List<Pa
         ExcerptAppender appender = chronicleInstance.getAppender();
         appender.writeDocument(w -> {
             w.write("action").int32(CrudActionType.Insert.ordinal());
+            w.write("idPackageAccount").int64(newEntity.getPackagePurchaseId());
             w.write("packagePurchaseId").int64(newEntity.getPackagePurchaseId());
             w.write("name").text(newEntity.getName());
             w.write("lastAmount").text(newEntity.getLastAmount().toPlainString());

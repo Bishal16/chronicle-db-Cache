@@ -12,7 +12,7 @@ import java.util.Optional;
 public class PackageAccount {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+//    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_packageaccount")
     private Long id;
 
@@ -40,8 +40,9 @@ public class PackageAccount {
     public PackageAccount() {
     }
 
-    public PackageAccount(Long packagePurchaseId, String name, BigDecimal lastAmount,
+    public PackageAccount(Long id, Long packagePurchaseId, String name, BigDecimal lastAmount,
                           BigDecimal balanceBefore, BigDecimal balanceAfter, String uom, Boolean isSelected) {
+        this.id = id;
         this.packagePurchaseId = packagePurchaseId;
         this.name = name;
         this.lastAmount = lastAmount;

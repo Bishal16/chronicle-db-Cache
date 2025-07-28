@@ -1,5 +1,6 @@
 package com.telcobright.oltp.service;
 
+import com.telcobright.oltp.dbCache.PackageAccountCache;
 import com.telcobright.oltp.queue.chronicle.ChronicleInstance;
 import com.zaxxer.hikari.HikariDataSource;
 import io.quarkus.runtime.Startup;
@@ -15,18 +16,21 @@ public class ConsumerFactory {
     private final boolean replayOnStart;
     private final HikariDataSource dataSource;
     private final ChronicleInstance chronicleInstance;
+    private final PackageAccountCache packageAccountCache;
 
     @Inject
     public ConsumerFactory(
             @ConfigProperty(name = "chronicle.queue.offset.table", defaultValue = "queue_offsets") String offsetTable,
             @ConfigProperty(name = "chronicle.queue.replay.on.start", defaultValue = "true") boolean replayOnStart,
             HikariDataSource dataSource,
-            ChronicleInstance chronicleInstance
+            ChronicleInstance chronicleInstance,
+            PackageAccountCache packageAccountCache
     ) {
         this.offsetTable = offsetTable;
         this.replayOnStart = replayOnStart;
         this.dataSource = dataSource;
         this.chronicleInstance = chronicleInstance;
+        this.packageAccountCache = packageAccountCache;
     }
     @Inject
     PendingStatusChecker pendingStatusChecker;
@@ -40,7 +44,8 @@ public class ConsumerFactory {
                 dataSource,
                 offsetTable,
                 replayOnStart,
-                pendingStatusChecker
+                pendingStatusChecker,
+                packageAccountCache
         );
 
         chronicleInstance.subscribe(consumer);

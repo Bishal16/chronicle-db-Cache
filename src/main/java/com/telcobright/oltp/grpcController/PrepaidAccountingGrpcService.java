@@ -3,7 +3,6 @@ package com.telcobright.oltp.grpcController;
 import com.telcobright.oltp.dbCache.PackageAccountCache;
 import com.telcobright.oltp.entity.PackageAccDelta;
 import com.telcobright.oltp.entity.PackageAccount;
-import com.telcobright.oltp.queue.chronicle.ChronicleInstance;
 import com.telcobright.oltp.service.PendingStatusChecker;
 import io.quarkus.grpc.GrpcService;
 import io.smallrye.common.annotation.Blocking;
@@ -99,4 +98,43 @@ public class PrepaidAccountingGrpcService implements PrepaidAccounting {
                 .setBalance(targetAccount.getBalanceAfter().doubleValue())
                 .build());
     }
+
+
+    @Override
+    public Uni<InsertPackageResponse> insertPackageAccount(InsertPackageRequest request) {
+        try {
+            prepaidaccounting.PackageAccount grpcPkg = request.getPkgAcc();
+
+            PackageAccount newPackageAccount = new PackageAccount(
+                    grpcPkg.getId(),
+                    grpcPkg.getPackagePurchaseId(),
+                    grpcPkg.getName(),
+                    new BigDecimal(grpcPkg.getLastAmount()),
+                    new BigDecimal(grpcPkg.getBalanceBefore()),
+                    new BigDecimal(grpcPkg.getBalanceAfter()),
+                    grpcPkg.getUom(),
+                    grpcPkg.getIsSelected()
+            );
+
+            packageAccountCache.insert(newPackageAccount);
+
+            logger.info("✅ Inserted new package account: {}", newPackageAccount);
+
+            return Uni.createFrom().item(() ->
+                    InsertPackageResponse.newBuilder()
+                            .setSuccess(true)
+                            .setMessage("PackageAccount inserted successfully")
+                            .build()
+            );
+        } catch (Exception e) {
+            logger.error("❌ Failed to insert package account", e);
+            return Uni.createFrom().item(() ->
+                    InsertPackageResponse.newBuilder()
+                            .setSuccess(false)
+                            .setMessage("Error: " + e.getMessage())
+                            .build()
+            );
+        }
+    }
+
 }
