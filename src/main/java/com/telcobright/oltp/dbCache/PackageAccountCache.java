@@ -203,25 +203,10 @@ public class PackageAccountCache extends JdbcCache<Long, PackageAccount, List<Pa
     }
 
     private static void logPackageAccountInfo(ResultSet rs, PackageAccount acc) throws SQLException {
-        String logMessage = String.format("""
-        Cached PackageAccount:
-            ID              = %d
-            Name            = %s
-            LastAmount      = %s
-            BalanceBefore   = %s
-            BalanceAfter    = %s
-            UOM             = %s
-        ----------------------------------------
-        """,
-                rs.getLong("id"),
-                acc.getName(),
-                acc.getLastAmount(),
-                acc.getBalanceBefore(),
-                acc.getBalanceAfter(),
-                acc.getUom()
-        );
-
-        logger.info(logMessage);
+        String logMessage = String.format("Cached PackageAccount:    ID = %d    Name = %s    LastAmount = %s    BalanceBefore = %s    BalanceAfter = %s    UOM = %s",
+                rs.getLong("id"), acc.getName(), acc.getLastAmount(), acc.getBalanceBefore(), acc.getBalanceAfter(), acc.getUom());
+        System.out.println(logMessage);
+//        logger.info(logMessage);
     }
 
     public ConcurrentHashMap<Long, PackageAccount> getAccountCache() {
