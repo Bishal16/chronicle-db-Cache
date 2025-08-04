@@ -53,7 +53,7 @@ public class PrepaidAccountingGrpcService implements PrepaidAccounting {
 
         try{
             for (PackageAccDelta delta : deltasList) {
-                PackageAccount targetAccount = packageAccountCache.getAccountCache().get(delta.accountId);
+                PackageAccount targetAccount = packageAccountCache.getAccountCache().get(delta.dbName).get(delta.accountId);
                 if (targetAccount == null) {
                     throw new IllegalArgumentException("Account not found: " + delta.accountId + ", Db name : " + delta.dbName);
                 }
@@ -85,7 +85,7 @@ public class PrepaidAccountingGrpcService implements PrepaidAccounting {
 
     @Override
     public Uni<BalanceResponse> getBalance(GetBalanceRequest request) {
-        PackageAccount targetAccount = packageAccountCache.getAccountCache().get(request.getIdPackageAcc());
+        PackageAccount targetAccount = packageAccountCache.getAccountCache().get(request.getDbName()).get(request.getIdPackageAcc());
         if(targetAccount == null)
             return Uni.createFrom().item(() -> BalanceResponse.newBuilder()
                     .setStatus(false)

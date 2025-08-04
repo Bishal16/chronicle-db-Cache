@@ -9,7 +9,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 public abstract class JdbcCache<Tkey, TEntity, TDelta> {
-    protected ConcurrentHashMap<Tkey,TEntity> pkgIdVsPkgAccountCache = new ConcurrentHashMap<>();
+//    protected ConcurrentHashMap<Tkey,TEntity> pkgIdVsPkgAccountCache = new ConcurrentHashMap<>();
+    protected ConcurrentHashMap<String, ConcurrentHashMap<Tkey, TEntity>> dbVsPkgIdVsPkgAccountCache = new ConcurrentHashMap<>();
+
     protected String jdbcUrl;
     protected HikariDataSource dataSource;
 

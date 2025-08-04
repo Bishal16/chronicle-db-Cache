@@ -9,15 +9,14 @@ import io.quarkus.runtime.Startup;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import net.openhft.chronicle.queue.ExcerptAppender;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import io.quarkus.scheduler.Scheduled;
 
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.sql.*;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -35,6 +34,9 @@ public class PackageAccountCache extends JdbcCache<Long, PackageAccount, List<Pa
 
     @Inject
     PendingStatusChecker pendingStatusChecker;
+
+    @ConfigProperty(name = "db.name")
+    String adminDb;
 
     private static final Logger logger = LoggerFactory.getLogger(PackageAccountCache.class);
 
@@ -92,39 +94,69 @@ public class PackageAccountCache extends JdbcCache<Long, PackageAccount, List<Pa
 
 
 
+    public List<String> getAllResellerDbName() {
+        List<String> dbNames = new ArrayList<>();
+
+        String sql = """
+        SELECT schema_name 
+        FROM information_schema.schemata 
+        WHERE schema_name LIKE 'res\\_%'
+    """;
+
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+
+            while (rs.next()) {
+                dbNames.add(rs.getString("schema_name"));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return dbNames;
+    }
+
     @Override
     public void initFromDb() throws SQLException {
+        List<String> dbNames = getAllResellerDbName();
+        dbNames.add(adminDb);
+
         try (Connection conn = getConnection()) {
-            String sql = """
-            SELECT id_packageaccount AS id, id_PackagePurchase AS packagePurchaseId,
-                   name, lastAmount, balanceBefore, balanceAfter, uom, isSelected
-            FROM packageaccount
-        """;
-            try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-                try (ResultSet rs = stmt.executeQuery()) {
-                    while (rs.next()) {
-                        PackageAccount acc = new PackageAccount();
+            for (String dbName : dbNames) {
+                ConcurrentHashMap<Long, PackageAccount> pkgIdVsPkgAccountCache = new ConcurrentHashMap<>();
+                String sql = String.format("""
+                    SELECT id_packageaccount AS id, id_PackagePurchase AS packagePurchaseId,
+                           name, lastAmount, balanceBefore, balanceAfter, uom, isSelected
+                    FROM %s.packageaccount
+                """, dbName);
+                try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+                    try (ResultSet rs = stmt.executeQuery()) {
+                        while (rs.next()) {
+                            PackageAccount acc = new PackageAccount();
 //                        acc.setId(rs.getLong("id"));  // uncommented
-                        acc.setPackagePurchaseId(rs.getLong("packagePurchaseId"));
-                        acc.setName(rs.getString("name"));
-                        acc.setLastAmount(rs.getBigDecimal("lastAmount"));
-                        acc.setBalanceBefore(rs.getBigDecimal("balanceBefore"));
-                        acc.setBalanceAfter(rs.getBigDecimal("balanceAfter"));
-                        acc.setUom(rs.getString("uom"));
-                        acc.setIsSelected(rs.getBoolean("isSelected"));
+                            acc.setPackagePurchaseId(rs.getLong("packagePurchaseId"));
+                            acc.setName(rs.getString("name"));
+                            acc.setLastAmount(rs.getBigDecimal("lastAmount"));
+                            acc.setBalanceBefore(rs.getBigDecimal("balanceBefore"));
+                            acc.setBalanceAfter(rs.getBigDecimal("balanceAfter"));
+                            acc.setUom(rs.getString("uom"));
+                            acc.setIsSelected(rs.getBoolean("isSelected"));
 
-                        pkgIdVsPkgAccountCache.put(rs.getLong("id"), acc);
+                            pkgIdVsPkgAccountCache.put(rs.getLong("id"), acc);
 
-                        logPackageAccountInfo(rs, acc);
-
+                            logPackageAccountInfo(rs, acc);
+                        }
+                        dbVsPkgIdVsPkgAccountCache.put(dbName, pkgIdVsPkgAccountCache);
+                        logger.info("Cache initialized successfully. dbName = {}, account count: {}",dbName, pkgIdVsPkgAccountCache.size());
                     }
-                    logger.info("Cache initialized successfully. Account count: {}", pkgIdVsPkgAccountCache.size());
-                }
-                catch (Exception e) {
-                    logger.error("Couldn't initialize cache from db");
-                    throw new RuntimeException(e);
+                    catch (Exception e) {
+                        logger.error("Couldn't initialize cache from db");
+                        throw new RuntimeException(e);
+                    }
                 }
             }
+
+
         }
     }
 
@@ -148,7 +180,8 @@ public class PackageAccountCache extends JdbcCache<Long, PackageAccount, List<Pa
     protected Consumer<List<PackageAccDelta>> updateCache() {
         return packageAccDeltas -> {
             for (PackageAccDelta delta : packageAccDeltas) {
-                PackageAccount targetAcc= pkgIdVsPkgAccountCache.get(delta.accountId);
+//                PackageAccount targetAcc= pkgIdVsPkgAccountCache.get(delta.accountId);
+                PackageAccount targetAcc= dbVsPkgIdVsPkgAccountCache.get(delta.dbName).get(delta.accountId);
                 if(targetAcc==null){
                    throw new RuntimeException("Package account [id: ]" +delta.accountId +
                            " not found in cache");
@@ -192,14 +225,15 @@ public class PackageAccountCache extends JdbcCache<Long, PackageAccount, List<Pa
 
     @Override
     protected Consumer<PackageAccount> getInsertAction() {
-        return newEntity -> {
-            try {
-                pkgIdVsPkgAccountCache.put(newEntity.getId(),newEntity);
-            } catch (Exception e) {
-                throw new RuntimeException("Duplicate Entity, packageAccount [id: ]" +
-                        newEntity.getId() + " already exists in the cache.");
-            }
-        };
+//        return newEntity -> {
+//            try {
+//                pkgIdVsPkgAccountCache.put(newEntity.getId(),newEntity);
+//            } catch (Exception e) {
+//                throw new RuntimeException("Duplicate Entity, packageAccount [id: ]" +
+//                        newEntity.getId() + " already exists in the cache.");
+//            }
+//        };
+        return null;
     }
 
     private static void logPackageAccountInfo(ResultSet rs, PackageAccount acc) throws SQLException {
@@ -209,8 +243,8 @@ public class PackageAccountCache extends JdbcCache<Long, PackageAccount, List<Pa
 //        logger.info(logMessage);
     }
 
-    public ConcurrentHashMap<Long, PackageAccount> getAccountCache() {
-        return this.pkgIdVsPkgAccountCache;
+    public ConcurrentHashMap<String, ConcurrentHashMap<Long, PackageAccount>> getAccountCache() {
+        return this.dbVsPkgIdVsPkgAccountCache;
     }
 
 }

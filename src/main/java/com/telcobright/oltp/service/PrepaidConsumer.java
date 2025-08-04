@@ -224,22 +224,22 @@ public class PrepaidConsumer implements Runnable, ConsumerToQueue<PackageAccDelt
 
             logger.info("✅ Consumer '{}' processed update of full batch at offset: {}", consumerName, tailer.index());
         }
-        else if(actionType.equals(CrudActionType.Insert)){
-            long idPackageAcc = wire.read("idPackageAccount").int64();
-
-            PackageAccount newPackageAccount = new PackageAccount();
-
-            newPackageAccount.setPackagePurchaseId(wire.read("packagePurchaseId").int64());
-            newPackageAccount.setName(wire.read("name").text());
-            newPackageAccount.setLastAmount(new BigDecimal(wire.read("lastAmount").text()));
-            newPackageAccount.setBalanceBefore(new BigDecimal(wire.read("balanceBefore").text()));
-            newPackageAccount.setBalanceAfter(new BigDecimal(wire.read("balanceAfter").text()));
-            newPackageAccount.setUom(wire.read("uom").text());
-            newPackageAccount.setIsSelected(Boolean.valueOf(wire.read("").text()));
-
-            packageAccountCache.getAccountCache().put(idPackageAcc, newPackageAccount);
-            logger.info("✅ Consumer '{}' processed insert of full batch at offset: {}", consumerName, tailer.index());
-        }
+//        else if(actionType.equals(CrudActionType.Insert)){
+//            long idPackageAcc = wire.read("idPackageAccount").int64();
+//
+//            PackageAccount newPackageAccount = new PackageAccount();
+//
+//            newPackageAccount.setPackagePurchaseId(wire.read("packagePurchaseId").int64());
+//            newPackageAccount.setName(wire.read("name").text());
+//            newPackageAccount.setLastAmount(new BigDecimal(wire.read("lastAmount").text()));
+//            newPackageAccount.setBalanceBefore(new BigDecimal(wire.read("balanceBefore").text()));
+//            newPackageAccount.setBalanceAfter(new BigDecimal(wire.read("balanceAfter").text()));
+//            newPackageAccount.setUom(wire.read("uom").text());
+//            newPackageAccount.setIsSelected(Boolean.valueOf(wire.read("").text()));
+//
+//            packageAccountCache.getAccountCache().get().put(idPackageAcc, newPackageAccount);
+//            logger.info("✅ Consumer '{}' processed insert of full batch at offset: {}", consumerName, tailer.index());
+//        }
 
     }
 
