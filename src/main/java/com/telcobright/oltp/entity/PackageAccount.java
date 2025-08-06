@@ -1,5 +1,6 @@
 package com.telcobright.oltp.entity;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -12,29 +13,36 @@ import java.util.Optional;
 public class PackageAccount {
 
     @Id
-//    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_packageaccount")
+    @JsonProperty("id_packageaccount")
     private Long id;
 
     @Column(name = "id_PackagePurchase", nullable = false)
+    @JsonProperty("id_PackagePurchase")
     private Long packagePurchaseId;
 
     @Column(nullable = false)
+    @JsonProperty("name")
     private String name;
 
     @Column(nullable = false, precision = 20, scale = 6)
+    @JsonProperty("lastAmount")
     private BigDecimal lastAmount;
 
     @Column(nullable = false, precision = 20, scale = 6)
+    @JsonProperty("balanceBefore")
     private BigDecimal balanceBefore;
 
     @Column(nullable = false, precision = 20, scale = 6)
+    @JsonProperty("balanceAfter")
     private BigDecimal balanceAfter;
 
     @Column(nullable = false)
+    @JsonProperty("uom")
     private String uom;
 
     @Column(nullable = false)
+    @JsonProperty("isSelected")
     private Boolean isSelected = false;
 
     public PackageAccount() {

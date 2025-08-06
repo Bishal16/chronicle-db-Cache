@@ -1,5 +1,7 @@
 package com.telcobright.oltp.dbCache;
 
+import com.telcobright.oltp.config.DebeziumEvent;
+import com.telcobright.oltp.config.PackageAccountCdc;
 import com.telcobright.oltp.entity.PackageAccDelta;
 import com.telcobright.oltp.entity.PackageAccount;
 import com.telcobright.oltp.queue.chronicle.ChronicleInstance;
@@ -246,5 +248,18 @@ public class PackageAccountCache extends JdbcCache<Long, PackageAccount, List<Pa
     public ConcurrentHashMap<String, ConcurrentHashMap<Long, PackageAccount>> getAccountCache() {
         return this.dbVsPkgIdVsPkgAccountCache;
     }
+    public void updateAccountCache(String dbName, PackageAccount packageAccount) {
+        if (dbName == null || packageAccount == null || packageAccount.getId() == null) {
+            throw new IllegalArgumentException("dbName, packageAccount, and packageAccount.id must not be null");
+        }
+
+        // Get or create the inner map for this DB
+        dbVsPkgIdVsPkgAccountCache
+                .computeIfAbsent(dbName, k -> new ConcurrentHashMap<>())
+                .put(packageAccount.getId(), packageAccount);
+
+        System.out.println("✅ Updated cache for DB=" + dbName + ", packageAccountId=" + packageAccount.getId());
+    }
+
 
 }

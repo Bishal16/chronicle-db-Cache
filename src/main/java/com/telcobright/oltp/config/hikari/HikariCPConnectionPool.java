@@ -1,4 +1,4 @@
-package com.telcobright.oltp.service;
+package com.telcobright.oltp.config.hikari;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
