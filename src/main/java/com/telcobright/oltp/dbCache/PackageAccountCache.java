@@ -1,7 +1,5 @@
 package com.telcobright.oltp.dbCache;
 
-import com.telcobright.oltp.config.DebeziumEvent;
-import com.telcobright.oltp.config.PackageAccountCdc;
 import com.telcobright.oltp.entity.PackageAccDelta;
 import com.telcobright.oltp.entity.PackageAccount;
 import com.telcobright.oltp.queue.chronicle.ChronicleInstance;
@@ -10,42 +8,39 @@ import com.zaxxer.hikari.HikariDataSource;
 import io.quarkus.runtime.Startup;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import net.openhft.chronicle.queue.ExcerptAppender;
+import net.openhft.chronicle.wire.WireOut;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import io.quarkus.scheduler.Scheduled;
 
-
+import java.math.BigDecimal;
 import java.sql.*;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Consumer;
 
 @Startup
 @ApplicationScoped
-public class PackageAccountCache extends JdbcCache<Long, PackageAccount, List<PackageAccDelta>> {
+public class PackageAccountCache extends ChronicleQueueCache<PackageAccount, PackageAccDelta> {
 
     @Inject
     HikariDataSource dataSource;
 
     @Inject
-    ChronicleInstance chronicleInstance;
-
-    @Inject
     PendingStatusChecker pendingStatusChecker;
 
     @ConfigProperty(name = "db.name")
-    String adminDb;
+    String adminDbConfig;
+
+    @Inject
+    ChronicleInstance chronicleInstanceInjected;
 
     private static final Logger logger = LoggerFactory.getLogger(PackageAccountCache.class);
 
     private final AtomicBoolean isInitialized = new AtomicBoolean(false);
 
     public PackageAccountCache() {
-        super();
+        super("PackageAccount");
     }
 
 
@@ -79,6 +74,8 @@ public class PackageAccountCache extends JdbcCache<Long, PackageAccount, List<Pa
 
                 if (super.getDataSource() == null) {
                     super.setDataSource(dataSource);
+                    super.setChronicleInstance(chronicleInstanceInjected);
+                    super.setAdminDb(adminDbConfig);
                 } else {
                     logger.info("ℹ️ DataSource already set, skipping re-initialization.");
                 }
@@ -96,117 +93,68 @@ public class PackageAccountCache extends JdbcCache<Long, PackageAccount, List<Pa
 
 
 
-    public List<String> getAllResellerDbName() {
-        List<String> dbNames = new ArrayList<>();
 
-        String sql = """
-        SELECT schema_name 
-        FROM information_schema.schemata 
-        WHERE schema_name LIKE 'res\\_%'
-    """;
-
-        try (Connection conn = getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql);
+    @Override
+    protected void loadEntitiesFromDb(Connection conn, String dbName,
+                                     ConcurrentHashMap<Long, PackageAccount> cache) throws SQLException {
+        String sql = String.format("""
+            SELECT id_packageaccount AS id, id_PackagePurchase AS packagePurchaseId,
+                   name, lastAmount, balanceBefore, balanceAfter, uom, isSelected
+            FROM %s.packageaccount
+        """, dbName);
+        
+        try (PreparedStatement stmt = conn.prepareStatement(sql);
              ResultSet rs = stmt.executeQuery()) {
-
+            
             while (rs.next()) {
-                dbNames.add(rs.getString("schema_name"));
+                PackageAccount acc = mapResultSetToEntity(rs);
+                acc.setId(rs.getLong("id"));
+                cache.put(acc.getId(), acc);
+                logPackageAccountInfo(rs, acc);
             }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return dbNames;
-    }
-
-    @Override
-    public void initFromDb() throws SQLException {
-        List<String> dbNames = getAllResellerDbName();
-        dbNames.add(adminDb);
-
-        try (Connection conn = getConnection()) {
-            for (String dbName : dbNames) {
-                ConcurrentHashMap<Long, PackageAccount> pkgIdVsPkgAccountCache = new ConcurrentHashMap<>();
-                String sql = String.format("""
-                    SELECT id_packageaccount AS id, id_PackagePurchase AS packagePurchaseId,
-                           name, lastAmount, balanceBefore, balanceAfter, uom, isSelected
-                    FROM %s.packageaccount
-                """, dbName);
-                try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-                    try (ResultSet rs = stmt.executeQuery()) {
-                        while (rs.next()) {
-                            PackageAccount acc = new PackageAccount();
-//                        acc.setId(rs.getLong("id"));  // uncommented
-                            acc.setPackagePurchaseId(rs.getLong("packagePurchaseId"));
-                            acc.setName(rs.getString("name"));
-                            acc.setLastAmount(rs.getBigDecimal("lastAmount"));
-                            acc.setBalanceBefore(rs.getBigDecimal("balanceBefore"));
-                            acc.setBalanceAfter(rs.getBigDecimal("balanceAfter"));
-                            acc.setUom(rs.getString("uom"));
-                            acc.setIsSelected(rs.getBoolean("isSelected"));
-
-                            pkgIdVsPkgAccountCache.put(rs.getLong("id"), acc);
-
-                            logPackageAccountInfo(rs, acc);
-                        }
-                        dbVsPkgIdVsPkgAccountCache.put(dbName, pkgIdVsPkgAccountCache);
-                        logger.info("Cache initialized successfully. dbName = {}, account count: {}",dbName, pkgIdVsPkgAccountCache.size());
-                    }
-                    catch (Exception e) {
-                        logger.error("Couldn't initialize cache from db");
-                        throw new RuntimeException(e);
-                    }
-                }
-            }
-
-
+        } catch (Exception e) {
+            logger.error("Couldn't initialize cache from db for {}", dbName);
+            throw new RuntimeException(e);
         }
     }
-
+    
     @Override
-    protected void writeWALForUpdate(List<PackageAccDelta> entries) {
-        ExcerptAppender appender = chronicleInstance.getAppender();
-        appender.writeDocument(w -> {
-            w.write("action").int32(CrudActionType.Update.ordinal());
-            w.write("size").int32(entries.size());
-            for (PackageAccDelta entry : entries) {
-                w.write("dbName").text(entry.dbName);
-                w.write("accountId").int64(entry.accountId);
-                w.write("amount").text(entry.amount.toPlainString());
-            }
-        });
-        long lastIndex = appender.lastIndexAppended();
-        System.out.println("Wrote WAL entry at index: " + lastIndex);
+    protected PackageAccount mapResultSetToEntity(ResultSet rs) throws SQLException {
+        PackageAccount acc = new PackageAccount();
+        acc.setPackagePurchaseId(rs.getLong("packagePurchaseId"));
+        acc.setName(rs.getString("name"));
+        acc.setLastAmount(rs.getBigDecimal("lastAmount"));
+        acc.setBalanceBefore(rs.getBigDecimal("balanceBefore"));
+        acc.setBalanceAfter(rs.getBigDecimal("balanceAfter"));
+        acc.setUom(rs.getString("uom"));
+        acc.setIsSelected(rs.getBoolean("isSelected"));
+        return acc;
     }
 
     @Override
-    protected Consumer<List<PackageAccDelta>> updateCache() {
-        return packageAccDeltas -> {
-            for (PackageAccDelta delta : packageAccDeltas) {
-//                PackageAccount targetAcc= pkgIdVsPkgAccountCache.get(delta.accountId);
-                PackageAccount targetAcc= dbVsPkgIdVsPkgAccountCache.get(delta.dbName).get(delta.accountId);
-                if(targetAcc==null){
-                   throw new RuntimeException("Package account [id: ]" +delta.accountId +
-                           " not found in cache");
-                }
-
-                targetAcc.applyDelta(delta.amount);
-
-                System.out.println("\nReserved Amount = " + delta.amount);
-                System.out.printf("""
-                        Database           = %s
-                        ID_PackageAccount  = %d
-                        Balance Before     = %s
-                        Balance After      = %s
-                    ----------------------------------------
-                    """,
-                        delta.dbName,
-                        delta.accountId,
-                        targetAcc.getBalanceBefore(),
-                        targetAcc.getBalanceAfter()
-                );
-            }
-        };
+    protected void writeDeltaToWAL(WireOut wire, PackageAccDelta delta) {
+        wire.write("dbName").text(delta.getDbName());
+        wire.write("accountId").int64(delta.getAccountId());
+        wire.write("amount").text(delta.getAmount().toPlainString());
     }
+
+    @Override
+    protected void logDeltaApplication(PackageAccDelta delta, PackageAccount entity) {
+        System.out.println("\nReserved Amount = " + delta.getAmount());
+        System.out.printf("""
+                Database           = %s
+                ID_PackageAccount  = %d
+                Balance Before     = %s
+                Balance After      = %s
+            ----------------------------------------
+            """,
+                delta.getDbName(),
+                delta.getAccountId(),
+                entity.getBalanceBefore(),
+                entity.getBalanceAfter()
+        );
+    }
+
 
 //    @Override
 //    protected void writeWALForInsert(PackageAccount newEntity) {
@@ -246,19 +194,11 @@ public class PackageAccountCache extends JdbcCache<Long, PackageAccount, List<Pa
     }
 
     public ConcurrentHashMap<String, ConcurrentHashMap<Long, PackageAccount>> getAccountCache() {
-        return this.dbVsPkgIdVsPkgAccountCache;
+        return super.getCache();
     }
+    
     public void updateAccountCache(String dbName, PackageAccount packageAccount) {
-        if (dbName == null || packageAccount == null || packageAccount.getId() == null) {
-            throw new IllegalArgumentException("dbName, packageAccount, and packageAccount.id must not be null");
-        }
-
-        // Get or create the inner map for this DB
-        dbVsPkgIdVsPkgAccountCache
-                .computeIfAbsent(dbName, k -> new ConcurrentHashMap<>())
-                .put(packageAccount.getId(), packageAccount);
-
-        System.out.println("✅ Updated cache for DB=" + dbName + ", packageAccountId=" + packageAccount.getId());
+        super.updateEntityInCache(dbName, packageAccount);
     }
 
 

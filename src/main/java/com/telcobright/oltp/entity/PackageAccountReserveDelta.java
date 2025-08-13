@@ -3,15 +3,17 @@ package com.telcobright.oltp.entity;
 import java.io.Serializable;
 import java.math.BigDecimal;
 
-public class PackageAccDelta implements Serializable, DeltaOperation {
+public class PackageAccountReserveDelta implements Serializable, DeltaOperation {
     public final String dbName;
-    public final long accountId;
+    public final long reserveId;
     public final BigDecimal amount;
+    public final String sessionId;
     
-    public PackageAccDelta(String dbName, long accountId, BigDecimal amount) {
+    public PackageAccountReserveDelta(String dbName, long reserveId, BigDecimal amount, String sessionId) {
         this.dbName = dbName;
-        this.accountId = accountId;
+        this.reserveId = reserveId;
         this.amount = amount;
+        this.sessionId = sessionId;
     }
 
     @Override
@@ -21,11 +23,15 @@ public class PackageAccDelta implements Serializable, DeltaOperation {
 
     @Override
     public Long getAccountId() {
-        return accountId;
+        return reserveId;
     }
 
     @Override
     public BigDecimal getAmount() {
         return amount;
+    }
+    
+    public String getSessionId() {
+        return sessionId;
     }
 }

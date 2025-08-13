@@ -7,6 +7,14 @@ option java_outer_classname = "PrepaidAccountingProto";
 service PrepaidAccounting {
   rpc GetBalance (GetBalanceRequest) returns (BalanceResponse);
   rpc updateBalanceThroughJdbcCache(Deltas) returns (UpdateResponse);
+  rpc deletePackageAccount(DeletePackageRequest) returns (DeletePackageResponse);
+  
+  // PackageAccountReserve operations
+  rpc reserveBalance(ReserveRequest) returns (ReserveResponse);
+  rpc releaseReserve(ReleaseReserveRequest) returns (ReleaseReserveResponse);
+  rpc getReserve(GetReserveRequest) returns (GetReserveResponse);
+  rpc deleteReserve(DeleteReserveRequest) returns (DeleteReserveResponse);
+  
 //  rpc insertPackageAccount(InsertPackageRequest) returns (InsertPackageResponse);
 }
 
@@ -34,6 +42,68 @@ message BalanceResponse {
   bool status = 1;
   double balance = 2;
   string message = 3;
+}
+
+message DeletePackageRequest {
+  string dbName = 1;
+  int64 idPackageAcc = 2;
+}
+
+message DeletePackageResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// PackageAccountReserve messages
+message ReserveRequest {
+  string dbName = 1;
+  int64 idPackageAccount = 2;
+  string sessionId = 3;
+  double amount = 4;
+}
+
+message ReserveResponse {
+  bool success = 1;
+  string message = 2;
+  int64 reserveId = 3;
+}
+
+message ReleaseReserveRequest {
+  string dbName = 1;
+  int64 reserveId = 2;
+  double amount = 3;
+  string sessionId = 4;
+}
+
+message ReleaseReserveResponse {
+  bool success = 1;
+  string message = 2;
+  double remainingReserve = 3;
+}
+
+message GetReserveRequest {
+  string dbName = 1;
+  int64 reserveId = 2;
+}
+
+message GetReserveResponse {
+  bool success = 1;
+  int64 reserveId = 2;
+  int64 packageAccountId = 3;
+  string sessionId = 4;
+  double currentReserve = 5;
+  string status = 6;
+  string message = 7;
+}
+
+message DeleteReserveRequest {
+  string dbName = 1;
+  int64 reserveId = 2;
+}
+
+message DeleteReserveResponse {
+  bool success = 1;
+  string message = 2;
 }
 
 //message PackageAccount {

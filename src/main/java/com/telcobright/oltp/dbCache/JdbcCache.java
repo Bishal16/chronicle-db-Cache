@@ -61,6 +61,13 @@ public abstract class JdbcCache<Tkey, TEntity, TDelta> {
         updateCache().accept(delta);
     }
 
+    protected abstract void writeWALForDelete(String dbName, Tkey key);
+    protected abstract Consumer<String> deleteFromCache(Tkey key);
+    public void delete(String dbName, Tkey key){
+        writeWALForDelete(dbName, key);
+        deleteFromCache(key).accept(dbName);
+    }
+
 //    protected abstract void writeWALForInsert(TEntity entity);
 //    protected abstract Consumer<TEntity> getInsertAction();
 //    public void insert(TEntity entity){

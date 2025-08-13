@@ -204,10 +204,13 @@ public class PrepaidConsumer implements Runnable, ConsumerToQueue<PackageAccDelt
         Wire wire = dc.wire();
         int actionOrdinal = wire.read("action").int32();
         CrudActionType actionType = CrudActionType.values()[actionOrdinal];
-        int size = wire.read("size").int32();
-        logger.info("Processing action={} with {} deltas", actionType, size);
+        
+        logger.info("Processing action={}", actionType);
 
         if(actionType.equals(CrudActionType.Update)){
+            int size = wire.read("size").int32();
+            logger.info("Processing {} deltas for update", size);
+            
             for (int i = 0; i < size; i++) {
                 String dbName = wire.read("dbName").text();
                 long accountId = wire.read("accountId").int64();
@@ -223,6 +226,18 @@ public class PrepaidConsumer implements Runnable, ConsumerToQueue<PackageAccDelt
             saveOffsetToDb(conn, tailer.index());
 
             logger.info("✅ Consumer '{}' processed update of full batch at offset: {}", consumerName, tailer.index());
+        }
+        else if(actionType.equals(CrudActionType.Delete)){
+            String dbName = wire.read("dbName").text();
+            long accountId = wire.read("accountId").int64();
+            
+            deletePackageAccountFromDb(dbName, accountId, conn);
+            persistDeleteLog(conn, consumerName, tailer.index(), dbName, accountId);
+            
+            saveOffsetToDb(conn, tailer.index());
+            
+            logger.info("✅ Consumer '{}' processed delete for accountId={} in db={} at offset: {}", 
+                consumerName, accountId, dbName, tailer.index());
         }
 //        else if(actionType.equals(CrudActionType.Insert)){
 //            long idPackageAcc = wire.read("idPackageAccount").int64();
@@ -284,6 +299,34 @@ public class PrepaidConsumer implements Runnable, ConsumerToQueue<PackageAccDelt
                     throw new SQLException("Offset not found for consumer=" + consumerName);
                 }
             }
+        }
+    }
+
+    private void deletePackageAccountFromDb(String dbName, long accountId, Connection conn) throws SQLException {
+        String sql = String.format("DELETE FROM %s.packageaccount WHERE id_packageaccount = ?", dbName);
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setLong(1, accountId);
+            int deleted = stmt.executeUpdate();
+            if (deleted == 0) {
+                logger.warn("⚠️ No packageaccount found to delete for id={} in db={}", accountId, dbName);
+            } else {
+                logger.info("✅ Deleted packageaccount id={} from database {}", accountId, dbName);
+            }
+        }
+    }
+
+    private void persistDeleteLog(Connection conn, String consumerName, long offset, String dbName, long accountId) throws SQLException {
+        String sql = String.format("""
+        INSERT INTO %s.delta_log (consumer_name, processed_at, offset, db_name, account_id, action_type)
+        VALUES (?, NOW(), ?, ?, ?, 'DELETE')
+    """, dbName);
+
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, consumerName);
+            ps.setLong(2, offset);
+            ps.setString(3, dbName);
+            ps.setLong(4, accountId);
+            ps.executeUpdate();
         }
     }
 

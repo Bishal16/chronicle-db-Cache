@@ -10,7 +10,7 @@ import java.util.Optional;
 @Entity
 @Table(name = "packageaccount")
 @Data
-public class PackageAccount {
+public class PackageAccount implements CacheableEntity {
 
     @Id
     @Column(name = "id_packageaccount")
@@ -68,6 +68,7 @@ public class PackageAccount {
         return entityManager.merge(this);
     }
 
+    @Override
     public synchronized void applyDelta(BigDecimal deltaAmount) {
         if (deltaAmount == null || deltaAmount.signum() <= 0) {
             throw new IllegalArgumentException("Delta amount must be a positive value for subtract operation");
@@ -75,5 +76,10 @@ public class PackageAccount {
         this.lastAmount = deltaAmount;
         this.balanceBefore = this.balanceAfter;
         this.balanceAfter = this.balanceAfter.subtract(deltaAmount);
+    }
+
+    @Override
+    public String getTableName() {
+        return "packageaccount";
     }
 }
