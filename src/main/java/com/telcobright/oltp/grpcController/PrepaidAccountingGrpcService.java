@@ -100,41 +100,41 @@ public class PrepaidAccountingGrpcService implements PrepaidAccounting {
     }
 
 
-    @Override
-    public Uni<InsertPackageResponse> insertPackageAccount(InsertPackageRequest request) {
-        try {
-            prepaidaccounting.PackageAccount grpcPkg = request.getPkgAcc();
+//    @Override
+//    public Uni<InsertPackageResponse> insertPackageAccount(InsertPackageRequest request) {
+//        try {
+//            prepaidaccounting.PackageAccount grpcPkg = request.getPkgAcc();
+//
+//            PackageAccount newPackageAccount = new PackageAccount(
+//                    grpcPkg.getId(),
+//                    grpcPkg.getPackagePurchaseId(),
+//                    grpcPkg.getName(),
+//                    new BigDecimal(grpcPkg.getLastAmount()),
+//                    new BigDecimal(grpcPkg.getBalanceBefore()),
+//                    new BigDecimal(grpcPkg.getBalanceAfter()),
+//                    grpcPkg.getUom(),
+//                    grpcPkg.getIsSelected()
+//            );
+//
+//            packageAccountCache.insert(newPackageAccount);
+//
+//            logger.info("✅ Inserted new package account: {}", newPackageAccount);
 
-            PackageAccount newPackageAccount = new PackageAccount(
-                    grpcPkg.getId(),
-                    grpcPkg.getPackagePurchaseId(),
-                    grpcPkg.getName(),
-                    new BigDecimal(grpcPkg.getLastAmount()),
-                    new BigDecimal(grpcPkg.getBalanceBefore()),
-                    new BigDecimal(grpcPkg.getBalanceAfter()),
-                    grpcPkg.getUom(),
-                    grpcPkg.getIsSelected()
-            );
-
-            packageAccountCache.insert(newPackageAccount);
-
-            logger.info("✅ Inserted new package account: {}", newPackageAccount);
-
-            return Uni.createFrom().item(() ->
-                    InsertPackageResponse.newBuilder()
-                            .setSuccess(true)
-                            .setMessage("PackageAccount inserted successfully")
-                            .build()
-            );
-        } catch (Exception e) {
-            logger.error("❌ Failed to insert package account", e);
-            return Uni.createFrom().item(() ->
-                    InsertPackageResponse.newBuilder()
-                            .setSuccess(false)
-                            .setMessage("Error: " + e.getMessage())
-                            .build()
-            );
-        }
-    }
+//            return Uni.createFrom().item(() ->
+//                    InsertPackageResponse.newBuilder()
+//                            .setSuccess(true)
+//                            .setMessage("PackageAccount inserted successfully")
+//                            .build()
+//            );
+//        } catch (Exception e) {
+//            logger.error("❌ Failed to insert package account", e);
+//            return Uni.createFrom().item(() ->
+//                    InsertPackageResponse.newBuilder()
+//                            .setSuccess(false)
+//                            .setMessage("Error: " + e.getMessage())
+//                            .build()
+//            );
+//        }
+//    }
 
 }

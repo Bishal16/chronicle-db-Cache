@@ -61,11 +61,11 @@ public abstract class JdbcCache<Tkey, TEntity, TDelta> {
         updateCache().accept(delta);
     }
 
-    protected abstract void writeWALForInsert(TEntity entity);
-    protected abstract Consumer<TEntity> getInsertAction();
-    public void insert(TEntity entity){
-        writeWALForInsert(entity);
-        getInsertAction().accept(entity);
-    }
+//    protected abstract void writeWALForInsert(TEntity entity);
+//    protected abstract Consumer<TEntity> getInsertAction();
+//    public void insert(TEntity entity){
+//        writeWALForInsert(entity);
+//        getInsertAction().accept(entity);
+//    }
 }
 

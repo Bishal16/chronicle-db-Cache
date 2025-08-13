@@ -208,25 +208,25 @@ public class PackageAccountCache extends JdbcCache<Long, PackageAccount, List<Pa
         };
     }
 
-    @Override
-    protected void writeWALForInsert(PackageAccount newEntity) {
-        ExcerptAppender appender = chronicleInstance.getAppender();
-        appender.writeDocument(w -> {
-            w.write("action").int32(CrudActionType.Insert.ordinal());
-            w.write("idPackageAccount").int64(newEntity.getPackagePurchaseId());
-            w.write("packagePurchaseId").int64(newEntity.getPackagePurchaseId());
-            w.write("name").text(newEntity.getName());
-            w.write("lastAmount").text(newEntity.getLastAmount().toPlainString());
-            w.write("balanceBefore").text(newEntity.getBalanceBefore().toPlainString());
-            w.write("balanceAfter").text(newEntity.getBalanceAfter().toPlainString());
-            w.write("uom").text(newEntity.getUom());
-            w.write("isSelected").bool(Boolean.TRUE.equals(newEntity.getIsSelected()));
-        });
-    }
+//    @Override
+//    protected void writeWALForInsert(PackageAccount newEntity) {
+//        ExcerptAppender appender = chronicleInstance.getAppender();
+//        appender.writeDocument(w -> {
+//            w.write("action").int32(CrudActionType.Insert.ordinal());
+//            w.write("idPackageAccount").int64(newEntity.getPackagePurchaseId());
+//            w.write("packagePurchaseId").int64(newEntity.getPackagePurchaseId());
+//            w.write("name").text(newEntity.getName());
+//            w.write("lastAmount").text(newEntity.getLastAmount().toPlainString());
+//            w.write("balanceBefore").text(newEntity.getBalanceBefore().toPlainString());
+//            w.write("balanceAfter").text(newEntity.getBalanceAfter().toPlainString());
+//            w.write("uom").text(newEntity.getUom());
+//            w.write("isSelected").bool(Boolean.TRUE.equals(newEntity.getIsSelected()));
+//        });
+//    }
 
 
-    @Override
-    protected Consumer<PackageAccount> getInsertAction() {
+//    @Override
+//    protected Consumer<PackageAccount> getInsertAction() {
 //        return newEntity -> {
 //            try {
 //                pkgIdVsPkgAccountCache.put(newEntity.getId(),newEntity);
@@ -235,8 +235,8 @@ public class PackageAccountCache extends JdbcCache<Long, PackageAccount, List<Pa
 //                        newEntity.getId() + " already exists in the cache.");
 //            }
 //        };
-        return null;
-    }
+//        return null;
+//    }
 
     private static void logPackageAccountInfo(ResultSet rs, PackageAccount acc) throws SQLException {
         String logMessage = String.format("Cached PackageAccount:    ID = %d    Name = %s    LastAmount = %s    BalanceBefore = %s    BalanceAfter = %s    UOM = %s",
