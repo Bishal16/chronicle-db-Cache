@@ -9,7 +9,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 public abstract class JdbcCache<Tkey, TEntity, TDelta> {
-//    protected ConcurrentHashMap<Tkey,TEntity> pkgIdVsPkgAccountCache = new ConcurrentHashMap<>();
     protected ConcurrentHashMap<String, ConcurrentHashMap<Tkey, TEntity>> dbVsPkgIdVsPkgAccountCache = new ConcurrentHashMap<>();
 
     protected String jdbcUrl;
@@ -32,6 +31,7 @@ public abstract class JdbcCache<Tkey, TEntity, TDelta> {
         }
         this.dataSource = dataSource;
     }
+
     public HikariDataSource getDataSource() {
         return this.dataSource;
     }
@@ -68,11 +68,5 @@ public abstract class JdbcCache<Tkey, TEntity, TDelta> {
         deleteFromCache(key).accept(dbName);
     }
 
-//    protected abstract void writeWALForInsert(TEntity entity);
-//    protected abstract Consumer<TEntity> getInsertAction();
-//    public void insert(TEntity entity){
-//        writeWALForInsert(entity);
-//        getInsertAction().accept(entity);
-//    }
 }
 

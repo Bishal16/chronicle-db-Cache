@@ -72,29 +72,50 @@ public class PackageAccountReserveCache extends ChronicleQueueCache<PackageAccou
 
     @Override
     protected void loadEntitiesFromDb(Connection conn, String dbName,
-                                     ConcurrentHashMap<Long, PackageAccountReserve> cache) throws SQLException {
-        String sql = String.format("""
-            SELECT id_packageaccountreserve AS id, id_packageaccount AS packageAccountId,
-                   sessionId, reservedAmount, reservedAt, releasedAt, status, currentReserve
-            FROM %s.packageaccountreserve
-            WHERE status = 'RESERVED'
+                                      ConcurrentHashMap<Long, PackageAccountReserve> cache) throws SQLException {
+        final String sql = String.format("""
+        SELECT
+            CAST(NULL AS SIGNED)          AS id,
+            `id_packageaccount`           AS packageAccountId,
+            `channel_call_uuid`           AS sessionId,
+            `reserveUnit`                 AS reservedAmount,
+            CAST(NULL AS DATETIME)        AS reservedAt,
+            CAST(NULL AS DATETIME)        AS releasedAt,
+            'RESERVED'                    AS status,
+            `reserveUnit`                 AS currentReserve
+        FROM `%s`.`packageaccountreserve`
         """, dbName);
-        
+
         try (PreparedStatement stmt = conn.prepareStatement(sql);
              ResultSet rs = stmt.executeQuery()) {
-            
+
             while (rs.next()) {
                 PackageAccountReserve reserve = mapResultSetToEntity(rs);
-                reserve.setId(rs.getLong("id"));
-                cache.put(reserve.getId(), reserve);
+
+                // Ensure required defaults in case mapper leaves nulls
+                if (reserve.getStatus() == null) {
+                    reserve.setStatus("RESERVED");
+                }
+                if (reserve.getCurrentReserve() == null) {
+                    reserve.setCurrentReserve(
+                            reserve.getReservedAmount() != null ? reserve.getReservedAmount() : java.math.BigDecimal.ZERO
+                    );
+                }
+
+                // Keep the map key as Long (per method signature): use packageAccountId
+                long key = rs.getLong("packageAccountId");
+                cache.put(key, reserve);
+
                 logReserveInfo(reserve);
             }
         } catch (Exception e) {
-            logger.error("Couldn't initialize reserve cache from db for {}", dbName);
+            logger.error("Couldn't initialize reserve cache from db for {}", dbName, e);
             throw new RuntimeException(e);
         }
     }
-    
+
+
+
     @Override
     protected PackageAccountReserve mapResultSetToEntity(ResultSet rs) throws SQLException {
         PackageAccountReserve reserve = new PackageAccountReserve();

@@ -5,6 +5,8 @@ import com.telcobright.oltp.entity.PackageAccount;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.reactive.messaging.Incoming;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -14,6 +16,8 @@ import java.util.Base64;
 public class KafkaConfigListener {
     @Inject
     PackageAccountCache packageAccountCache;
+
+    private static final Logger logger = LoggerFactory.getLogger(KafkaConfigListener.class);
 
     @Incoming("telcobright_all_tables")
     public void onMessage(DebeziumEvent event) {
@@ -25,21 +29,18 @@ public class KafkaConfigListener {
             String dbName = event.payload.source.db;
 
             if ("c".equals(operation) && event.payload.after != null) {
-                // Handle INSERT
-                System.out.println("🔥 New row inserted in packageaccount: ID=" + event.payload.after.id);
+                logger.info("🔥 New row inserted in cache, db: {} packageaccount: ID={}", dbName, event.payload.after.id);
                 updateDbVsPkgIdVsPkgAccountCache(event.payload.after, dbName);
             } 
-            else if ("d".equals(operation) && event.payload.before != null) {
-                // Handle DELETE
-                Long accountId = event.payload.before.id;
-                System.out.println("🗑️ Row deleted from packageaccount: ID=" + accountId);
-                packageAccountCache.delete(dbName, accountId);
-            }
-            else if ("u".equals(operation)) {
-                // Handle UPDATE if needed in future
-                System.out.println("📝 Row updated in packageaccount: ID=" + 
-                    (event.payload.after != null ? event.payload.after.id : event.payload.before.id));
-            }
+//            else if ("d".equals(operation) && event.payload.before != null) {
+//                Long accountId = event.payload.before.id;
+//                System.out.println("🗑️ Row deleted from packageaccount: ID=" + accountId);
+//                packageAccountCache.delete(dbName, accountId);
+//            }
+//            else if ("u".equals(operation)) {
+//                System.out.println("📝 Row updated in packageaccount: ID=" +
+//                    (event.payload.after != null ? event.payload.after.id : event.payload.before.id));
+//            }
         }
     }
 

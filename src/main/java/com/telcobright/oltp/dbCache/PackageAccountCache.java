@@ -44,25 +44,6 @@ public class PackageAccountCache extends ChronicleQueueCache<PackageAccount, Pac
     }
 
 
-//    @Scheduled(every = "2s", delay = 0, concurrentExecution = Scheduled.ConcurrentExecution.SKIP)
-//    void initCacheAfterReplay1() {
-//        if (isInitialized.get()) {
-//            return;
-//        }
-//
-//        if (!pendingStatusChecker.isReplayInProgress()) {
-//            try {
-//                logger.info("Pending replay completed ✅. Initializing cache...");
-//                super.setDataSource(dataSource);
-//                initFromDb();
-//                isInitialized.set(true);
-//            } catch (Exception e) {
-//                logger.error("❌ Failed to initialize cache", e);
-//            }
-//        } else {
-//            logger.info("⏳ Waiting for replay to finish before initializing cache...");
-//        }
-//    }
 
     @Scheduled(every = "2s", delay = 0, concurrentExecution = Scheduled.ConcurrentExecution.SKIP)
     void initCacheAfterReplay() {
@@ -155,36 +136,6 @@ public class PackageAccountCache extends ChronicleQueueCache<PackageAccount, Pac
         );
     }
 
-
-//    @Override
-//    protected void writeWALForInsert(PackageAccount newEntity) {
-//        ExcerptAppender appender = chronicleInstance.getAppender();
-//        appender.writeDocument(w -> {
-//            w.write("action").int32(CrudActionType.Insert.ordinal());
-//            w.write("idPackageAccount").int64(newEntity.getPackagePurchaseId());
-//            w.write("packagePurchaseId").int64(newEntity.getPackagePurchaseId());
-//            w.write("name").text(newEntity.getName());
-//            w.write("lastAmount").text(newEntity.getLastAmount().toPlainString());
-//            w.write("balanceBefore").text(newEntity.getBalanceBefore().toPlainString());
-//            w.write("balanceAfter").text(newEntity.getBalanceAfter().toPlainString());
-//            w.write("uom").text(newEntity.getUom());
-//            w.write("isSelected").bool(Boolean.TRUE.equals(newEntity.getIsSelected()));
-//        });
-//    }
-
-
-//    @Override
-//    protected Consumer<PackageAccount> getInsertAction() {
-//        return newEntity -> {
-//            try {
-//                pkgIdVsPkgAccountCache.put(newEntity.getId(),newEntity);
-//            } catch (Exception e) {
-//                throw new RuntimeException("Duplicate Entity, packageAccount [id: ]" +
-//                        newEntity.getId() + " already exists in the cache.");
-//            }
-//        };
-//        return null;
-//    }
 
     private static void logPackageAccountInfo(ResultSet rs, PackageAccount acc) throws SQLException {
         String logMessage = String.format("Cached PackageAccount:    ID = %d    Name = %s    LastAmount = %s    BalanceBefore = %s    BalanceAfter = %s    UOM = %s",

@@ -1,11 +1,14 @@
 package com.telcobright.oltp.config.hikari;
 
+import com.telcobright.oltp.service.PrepaidConsumer;
 import com.zaxxer.hikari.HikariDataSource;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @ApplicationScoped
 public class HikariInitializer {
@@ -21,12 +24,14 @@ public class HikariInitializer {
 
     private HikariDataSource hikariDataSource;
 
+    private static final Logger logger = LoggerFactory.getLogger(HikariInitializer.class);
+
     @PostConstruct
     void init() {
         hikariDataSource = HikariCPConnectionPool.initialize(
                 datasourceUrl, username, password, 2
         );
-        System.out.println("✅ HikariCP pool initialized with URL: " + datasourceUrl);
+        logger.info("✅ HikariCP pool initialized with URL: {}", datasourceUrl);
     }
 
     @Produces  // ⬅️ THIS makes it injectable

@@ -7,7 +7,7 @@ option java_outer_classname = "PrepaidAccountingProto";
 service PrepaidAccounting {
   rpc GetBalance (GetBalanceRequest) returns (BalanceResponse);
   rpc updateBalanceThroughJdbcCache(Deltas) returns (UpdateResponse);
-  rpc deletePackageAccount(DeletePackageRequest) returns (DeletePackageResponse);
+//  rpc deletePackageAccount(DeletePackageRequest) returns (DeletePackageResponse);
   
   // PackageAccountReserve operations
   rpc reserveBalance(ReserveRequest) returns (ReserveResponse);
@@ -15,7 +15,6 @@ service PrepaidAccounting {
   rpc getReserve(GetReserveRequest) returns (GetReserveResponse);
   rpc deleteReserve(DeleteReserveRequest) returns (DeleteReserveResponse);
   
-//  rpc insertPackageAccount(InsertPackageRequest) returns (InsertPackageResponse);
 }
 
 message Delta {

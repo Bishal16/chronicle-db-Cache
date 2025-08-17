@@ -107,52 +107,52 @@ public class PrepaidAccountingGrpcService implements PrepaidAccounting {
                 .build());
     }
 
-    @Override
-    public Uni<DeletePackageResponse> deletePackageAccount(DeletePackageRequest request) {
-        if (pendingStatusChecker.isReplayInProgress()) {
-            return Uni.createFrom().failure(
-                    new IllegalStateException("Service not ready. Pending replay in progress.")
-            );
-        }
-
-        String dbName = request.getDbName();
-        Long accountId = request.getIdPackageAcc();
-
-        if (dbName == null || dbName.isEmpty() || accountId == null) {
-            return Uni.createFrom().item(() -> DeletePackageResponse.newBuilder()
-                    .setSuccess(false)
-                    .setMessage("Invalid request: dbName and idPackageAcc are required")
-                    .build());
-        }
-
-        try {
-            // Check if account exists in cache
-            ConcurrentHashMap<Long, PackageAccount> dbCache = packageAccountCache.getAccountCache().get(dbName);
-            if (dbCache == null || !dbCache.containsKey(accountId)) {
-                return Uni.createFrom().item(() -> DeletePackageResponse.newBuilder()
-                        .setSuccess(false)
-                        .setMessage("Package account not found: id=" + accountId + ", db=" + dbName)
-                        .build());
-            }
-
-            // Perform delete through cache (writes to WAL and removes from cache)
-            packageAccountCache.delete(dbName, accountId);
-
-            logger.info("✅ Deleted package account via gRPC: accountId={}, dbName={}", accountId, dbName);
-
-            return Uni.createFrom().item(() -> DeletePackageResponse.newBuilder()
-                    .setSuccess(true)
-                    .setMessage("Package account deleted successfully")
-                    .build());
-
-        } catch (Exception e) {
-            logger.error("❌ Failed to delete package account", e);
-            return Uni.createFrom().item(() -> DeletePackageResponse.newBuilder()
-                    .setSuccess(false)
-                    .setMessage("Error: " + e.getMessage())
-                    .build());
-        }
-    }
+//    @Override
+//    public Uni<DeletePackageResponse> deletePackageAccount(DeletePackageRequest request) {
+//        if (pendingStatusChecker.isReplayInProgress()) {
+//            return Uni.createFrom().failure(
+//                    new IllegalStateException("Service not ready. Pending replay in progress.")
+//            );
+//        }
+//
+//        String dbName = request.getDbName();
+//        Long accountId = request.getIdPackageAcc();
+//
+//        if (dbName == null || dbName.isEmpty() || accountId == null) {
+//            return Uni.createFrom().item(() -> DeletePackageResponse.newBuilder()
+//                    .setSuccess(false)
+//                    .setMessage("Invalid request: dbName and idPackageAcc are required")
+//                    .build());
+//        }
+//
+//        try {
+//            // Check if account exists in cache
+//            ConcurrentHashMap<Long, PackageAccount> dbCache = packageAccountCache.getAccountCache().get(dbName);
+//            if (dbCache == null || !dbCache.containsKey(accountId)) {
+//                return Uni.createFrom().item(() -> DeletePackageResponse.newBuilder()
+//                        .setSuccess(false)
+//                        .setMessage("Package account not found: id=" + accountId + ", db=" + dbName)
+//                        .build());
+//            }
+//
+//            // Perform delete through cache (writes to WAL and removes from cache)
+//            packageAccountCache.delete(dbName, accountId);
+//
+//            logger.info("✅ Deleted package account via gRPC: accountId={}, dbName={}", accountId, dbName);
+//
+//            return Uni.createFrom().item(() -> DeletePackageResponse.newBuilder()
+//                    .setSuccess(true)
+//                    .setMessage("Package account deleted successfully")
+//                    .build());
+//
+//        } catch (Exception e) {
+//            logger.error("❌ Failed to delete package account", e);
+//            return Uni.createFrom().item(() -> DeletePackageResponse.newBuilder()
+//                    .setSuccess(false)
+//                    .setMessage("Error: " + e.getMessage())
+//                    .build());
+//        }
+//    }
 
     // PackageAccountReserve operations
     
@@ -167,7 +167,7 @@ public class PrepaidAccountingGrpcService implements PrepaidAccounting {
         try {
             String dbName = request.getDbName();
             Long packageAccountId = request.getIdPackageAccount();
-            String sessionId = request.getSessionId();
+            String channelCallUuid = request.getSessionId();
             BigDecimal amount = BigDecimal.valueOf(request.getAmount());
 
             // Check if package account exists and has sufficient balance
@@ -194,7 +194,7 @@ public class PrepaidAccountingGrpcService implements PrepaidAccounting {
             if (existingReserve != null) {
                 reserveId = existingReserve.getId();
                 // Add to existing reservation
-                PackageAccountReserveDelta delta = new PackageAccountReserveDelta(dbName, reserveId, amount, sessionId);
+                PackageAccountReserveDelta delta = new PackageAccountReserveDelta(dbName, reserveId, amount, channelCallUuid);
                 packageAccountReserveCache.update(java.util.List.of(delta));
             } else {
                 // Create new reservation (would need to generate ID - simplified here)
@@ -202,7 +202,7 @@ public class PrepaidAccountingGrpcService implements PrepaidAccounting {
                 PackageAccountReserve newReserve = new PackageAccountReserve();
                 newReserve.setId(reserveId);
                 newReserve.setPackageAccountId(packageAccountId);
-                newReserve.setSessionId(sessionId);
+                newReserve.setSessionId(channelCallUuid);
                 newReserve.setReservedAmount(amount);
                 newReserve.setCurrentReserve(amount);
                 newReserve.setReservedAt(java.time.LocalDateTime.now());
@@ -211,7 +211,7 @@ public class PrepaidAccountingGrpcService implements PrepaidAccounting {
                 packageAccountReserveCache.updateReserveCache(dbName, newReserve);
                 
                 // Write to WAL
-                PackageAccountReserveDelta delta = new PackageAccountReserveDelta(dbName, reserveId, amount, sessionId);
+                PackageAccountReserveDelta delta = new PackageAccountReserveDelta(dbName, reserveId, amount, channelCallUuid);
                 packageAccountReserveCache.update(java.util.List.of(delta));
             }
 
@@ -360,41 +360,5 @@ public class PrepaidAccountingGrpcService implements PrepaidAccounting {
     }
 
 
-//    @Override
-//    public Uni<InsertPackageResponse> insertPackageAccount(InsertPackageRequest request) {
-//        try {
-//            prepaidaccounting.PackageAccount grpcPkg = request.getPkgAcc();
-//
-//            PackageAccount newPackageAccount = new PackageAccount(
-//                    grpcPkg.getId(),
-//                    grpcPkg.getPackagePurchaseId(),
-//                    grpcPkg.getName(),
-//                    new BigDecimal(grpcPkg.getLastAmount()),
-//                    new BigDecimal(grpcPkg.getBalanceBefore()),
-//                    new BigDecimal(grpcPkg.getBalanceAfter()),
-//                    grpcPkg.getUom(),
-//                    grpcPkg.getIsSelected()
-//            );
-//
-//            packageAccountCache.insert(newPackageAccount);
-//
-//            logger.info("✅ Inserted new package account: {}", newPackageAccount);
-
-//            return Uni.createFrom().item(() ->
-//                    InsertPackageResponse.newBuilder()
-//                            .setSuccess(true)
-//                            .setMessage("PackageAccount inserted successfully")
-//                            .build()
-//            );
-//        } catch (Exception e) {
-//            logger.error("❌ Failed to insert package account", e);
-//            return Uni.createFrom().item(() ->
-//                    InsertPackageResponse.newBuilder()
-//                            .setSuccess(false)
-//                            .setMessage("Error: " + e.getMessage())
-//                            .build()
-//            );
-//        }
-//    }
 
 }
