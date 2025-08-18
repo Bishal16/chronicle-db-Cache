@@ -1,6 +1,5 @@
 package com.telcobright.oltp.config.hikari;
 
-import com.telcobright.oltp.service.PrepaidConsumer;
 import com.zaxxer.hikari.HikariDataSource;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;

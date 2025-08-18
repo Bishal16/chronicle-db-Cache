@@ -1,5 +1,6 @@
 package com.telcobright.oltp.entity;
 
+import com.telcobright.core.cache.DeltaOperation;
 import java.io.Serializable;
 import java.math.BigDecimal;
 

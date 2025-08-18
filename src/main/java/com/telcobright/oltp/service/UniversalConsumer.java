@@ -1,8 +1,7 @@
 package com.telcobright.oltp.service;
 
 import com.telcobright.oltp.dbCache.CrudActionType;
-import com.telcobright.oltp.dbCache.PackageAccountCache;
-import com.telcobright.oltp.entity.PackageAccDelta;
+import com.telcobright.oltp.dbCache.CacheManager;
 import com.telcobright.oltp.entity.PackageAccount;
 import com.telcobright.oltp.queue.chronicle.ConsumerToQueue;
 import com.zaxxer.hikari.HikariDataSource;
@@ -23,7 +22,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Properties;
 
-public class PrepaidConsumer implements Runnable, ConsumerToQueue<PackageAccDelta> {
+public class UniversalConsumer implements Runnable, ConsumerToQueue<Object> {
     private final ChronicleQueue queue;
     private final String consumerName;
     private final HikariDataSource dataSource;
@@ -32,13 +31,13 @@ public class PrepaidConsumer implements Runnable, ConsumerToQueue<PackageAccDelt
     private final ExcerptTailer tailer;
     private final ExcerptAppender appender;
     private final PendingStatusChecker pendingStatusChecker;
-    private final PackageAccountCache packageAccountCache;
+    private final CacheManager cacheManager;
 
     private volatile boolean running = true;
 
-    private static final Logger logger = LoggerFactory.getLogger(PrepaidConsumer.class);
-    public PrepaidConsumer(ChronicleQueue queue, ExcerptAppender appender, String consumerName,
-                           HikariDataSource dataSource, String offsetTable, boolean replayOnStart, PendingStatusChecker pendingStatusChecker, PackageAccountCache packageAccountCache) {
+    private static final Logger logger = LoggerFactory.getLogger(UniversalConsumer.class);
+    public UniversalConsumer(ChronicleQueue queue, ExcerptAppender appender, String consumerName,
+                           HikariDataSource dataSource, String offsetTable, boolean replayOnStart, PendingStatusChecker pendingStatusChecker, CacheManager cacheManager) {
 
         this.queue = queue;
         this.appender = appender;
@@ -47,10 +46,10 @@ public class PrepaidConsumer implements Runnable, ConsumerToQueue<PackageAccDelt
         this.offsetTable = offsetTable;
         this.replayOnStart = replayOnStart;
         this.pendingStatusChecker = pendingStatusChecker;
-        this.packageAccountCache = packageAccountCache;
+        this.cacheManager = cacheManager;
         this.tailer = queue.createTailer(consumerName);
 
-        logger.info("✅ Initialized consumer '{}' for queue: {}", consumerName, queue);
+        logger.info("✅ Initialized universal consumer '{}' for queue: {}", consumerName, queue);
 
         setTailerToLastProcessedOffset();
 
@@ -202,25 +201,45 @@ public class PrepaidConsumer implements Runnable, ConsumerToQueue<PackageAccDelt
 
     private void processMessage(DocumentContext dc, Connection conn) throws SQLException {
         Wire wire = dc.wire();
+        
+        // Read entity type (optional for backward compatibility)
+        String entity = wire.read(() -> "entity").text();
+        
+        // Read table name - this is now the primary identifier
+        String tableName = wire.read(() -> "tableName").text();
+        if (tableName == null) {
+            // Legacy format - default to packageaccount
+            tableName = "packageaccount";
+        }
+        
         int actionOrdinal = wire.read("action").int32();
         CrudActionType actionType = CrudActionType.values()[actionOrdinal];
-        
-        logger.info("Processing action={}", actionType);
+        logger.info("Processing action={} for table={}", actionType, tableName);
 
         if(actionType.equals(CrudActionType.Update)){
             int size = wire.read("size").int32();
-            logger.info("Processing {} deltas for update", size);
+            logger.info("Processing {} deltas for update on table {}", size, tableName);
             
             for (int i = 0; i < size; i++) {
                 String dbName = wire.read("dbName").text();
-                long accountId = wire.read("accountId").int64();
-                String amountStr = wire.read("amount").text();
-
-                BigDecimal amount = amountStr == null || amountStr.isEmpty() ? null : new BigDecimal(amountStr);
-                PackageAccDelta delta = new PackageAccDelta(dbName, accountId, amount);
-
-                updatePackageAccountTable(delta, conn);
-                persistProcessedDeltaLogs(conn, consumerName, tailer.index(), dbName, accountId, amount);
+                
+                if ("packageaccount".equals(tableName)) {
+                    long accountId = wire.read("accountId").int64();
+                    String amountStr = wire.read("amount").text();
+                    BigDecimal amount = amountStr == null || amountStr.isEmpty() ? null : new BigDecimal(amountStr);
+                    
+                    updatePackageAccountTable(dbName, accountId, amount, conn, tableName);
+                    persistProcessedDeltaLogs(conn, consumerName, tailer.index(), dbName, accountId, amount, tableName);
+                    
+                } else if ("packageaccountreserve".equals(tableName)) {
+                    long reserveId = wire.read("reserveId").int64();
+                    String amountStr = wire.read("amount").text();
+                    String sessionId = wire.read("sessionId").text();
+                    BigDecimal amount = amountStr == null || amountStr.isEmpty() ? null : new BigDecimal(amountStr);
+                    
+                    updatePackageAccountReserveTable(dbName, reserveId, amount, sessionId, conn, tableName);
+                    persistReserveProcessedLogs(conn, consumerName, tailer.index(), dbName, reserveId, amount, sessionId, tableName);
+                }
             }
 
             saveOffsetToDb(conn, tailer.index());
@@ -229,15 +248,17 @@ public class PrepaidConsumer implements Runnable, ConsumerToQueue<PackageAccDelt
         }
         else if(actionType.equals(CrudActionType.Delete)){
             String dbName = wire.read("dbName").text();
-            long accountId = wire.read("accountId").int64();
+            // Read entityId (new format) or accountId (legacy format)
+            Long entityId = wire.read(() -> "entityId").int64();
+            long id = (entityId != null) ? entityId : wire.read("accountId").int64();
             
-            deletePackageAccountFromDb(dbName, accountId, conn);
-            persistDeleteLog(conn, consumerName, tailer.index(), dbName, accountId);
+            deleteFromDb(dbName, id, conn, tableName);
+            persistDeleteLog(conn, consumerName, tailer.index(), dbName, id, tableName);
             
             saveOffsetToDb(conn, tailer.index());
             
-            logger.info("✅ Consumer '{}' processed delete for accountId={} in db={} at offset: {}", 
-                consumerName, accountId, dbName, tailer.index());
+            logger.info("✅ Consumer '{}' processed delete for id={} in table={} db={} at offset: {}", 
+                consumerName, id, tableName, dbName, tailer.index());
         }
 //        else if(actionType.equals(CrudActionType.Insert)){
 //            long idPackageAcc = wire.read("idPackageAccount").int64();
@@ -274,15 +295,23 @@ public class PrepaidConsumer implements Runnable, ConsumerToQueue<PackageAccDelt
     }
 
     @Override
-    public void updatePackageAccountTable(PackageAccDelta delta, Connection conn) throws SQLException {
-        try (PreparedStatement stmt = conn.prepareStatement(
-                "UPDATE " + delta.dbName + ".packageaccount SET lastAmount=-?, balanceBefore=balanceAfter, balanceAfter=balanceAfter-? WHERE id_packageaccount=?")) {
-            stmt.setBigDecimal(1, delta.amount);
-            stmt.setBigDecimal(2, delta.amount);
-            stmt.setLong(3, delta.accountId);
+    public void updatePackageAccountTable(Object delta, Connection conn) throws SQLException {
+        // This method is for interface compatibility only
+        throw new UnsupportedOperationException("Use table-specific update methods");
+    }
+    
+    private void updatePackageAccountTable(String dbName, long accountId, BigDecimal amount, Connection conn, String tableName) throws SQLException {
+        String sql = String.format(
+            "UPDATE %s.%s SET lastAmount=-?, balanceBefore=balanceAfter, balanceAfter=balanceAfter-? WHERE id_packageaccount=?",
+            dbName, tableName);
+        
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setBigDecimal(1, amount);
+            stmt.setBigDecimal(2, amount);
+            stmt.setLong(3, accountId);
             int updated = stmt.executeUpdate();
             if (updated == 0) {
-                throw new SQLException("No packageaccount found for id=" + delta.accountId);
+                throw new SQLException("No " + tableName + " found for id=" + accountId);
             }
         }
     }
@@ -302,35 +331,134 @@ public class PrepaidConsumer implements Runnable, ConsumerToQueue<PackageAccDelt
         }
     }
 
-    private void deletePackageAccountFromDb(String dbName, long accountId, Connection conn) throws SQLException {
-        String sql = String.format("DELETE FROM %s.packageaccount WHERE id_packageaccount = ?", dbName);
-        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setLong(1, accountId);
-            int deleted = stmt.executeUpdate();
-            if (deleted == 0) {
-                logger.warn("⚠️ No packageaccount found to delete for id={} in db={}", accountId, dbName);
-            } else {
-                logger.info("✅ Deleted packageaccount id={} from database {}", accountId, dbName);
+    private void updatePackageAccountReserveTable(String dbName, long reserveId, BigDecimal amount, String sessionId, Connection conn, String tableName) throws SQLException {
+        if (amount.signum() > 0) {
+            // Positive amount - new reservation or addition to existing
+            String sql = String.format("""
+                INSERT INTO %s.%s 
+                (id_packageaccountreserve, sessionId, reservedAmount, currentReserve, reservedAt, status)
+                VALUES (?, ?, ?, ?, NOW(), 'RESERVED')
+                ON DUPLICATE KEY UPDATE 
+                    reservedAmount = reservedAmount + VALUES(reservedAmount),
+                    currentReserve = currentReserve + VALUES(currentReserve)
+            """, dbName, tableName);
+            
+            try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+                stmt.setLong(1, reserveId);
+                stmt.setString(2, sessionId);
+                stmt.setBigDecimal(3, amount);
+                stmt.setBigDecimal(4, amount);
+                int affected = stmt.executeUpdate();
+                
+                if (affected > 0) {
+                    logger.info("✅ Reserved amount {} for reserveId={} in db={}", amount, reserveId, dbName);
+                }
+            }
+        } else if (amount.signum() < 0) {
+            // Negative amount - release reservation
+            BigDecimal releaseAmount = amount.abs();
+            
+            String sql = String.format("""
+                UPDATE %s.%s 
+                SET currentReserve = currentReserve - ?,
+                    status = CASE 
+                        WHEN currentReserve - ? <= 0 THEN 'RELEASED'
+                        ELSE status
+                    END,
+                    releasedAt = CASE
+                        WHEN currentReserve - ? <= 0 THEN NOW()
+                        ELSE releasedAt
+                    END
+                WHERE id_packageaccountreserve = ? AND currentReserve >= ?
+            """, dbName, tableName);
+            
+            try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+                stmt.setBigDecimal(1, releaseAmount);
+                stmt.setBigDecimal(2, releaseAmount);
+                stmt.setBigDecimal(3, releaseAmount);
+                stmt.setLong(4, reserveId);
+                stmt.setBigDecimal(5, releaseAmount);
+                
+                int updated = stmt.executeUpdate();
+                if (updated == 0) {
+                    throw new SQLException("No reserve found or insufficient reserve for id=" + reserveId);
+                }
+                
+                logger.info("✅ Released amount {} from reserveId={} in db={}", releaseAmount, reserveId, dbName);
             }
         }
     }
-
-    private void persistDeleteLog(Connection conn, String consumerName, long offset, String dbName, long accountId) throws SQLException {
+    
+    private void persistReserveProcessedLogs(Connection conn, String consumerName, long offset, String dbName, long reserveId, BigDecimal amount, String sessionId, String tableName) throws SQLException {
         String sql = String.format("""
-        INSERT INTO %s.delta_log (consumer_name, processed_at, offset, db_name, account_id, action_type)
+            INSERT INTO %s.reserve_log (consumer_name, processed_at, offset, db_name, reserve_id, amount, session_id, action_type)
+            VALUES (?, NOW(), ?, ?, ?, ?, ?, ?)
+        """, dbName);
+        
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, consumerName);
+            ps.setLong(2, offset);
+            ps.setString(3, dbName);
+            ps.setLong(4, reserveId);
+            if (amount != null) {
+                ps.setBigDecimal(5, amount);
+            } else {
+                ps.setNull(5, java.sql.Types.DECIMAL);
+            }
+            ps.setString(6, sessionId);
+            ps.setString(7, amount.signum() > 0 ? "RESERVE" : "RELEASE");
+            ps.executeUpdate();
+        }
+    }
+    
+    private void deleteFromDb(String dbName, long id, Connection conn, String tableName) throws SQLException {
+        // Determine ID column name based on table
+        String idColumn = getIdColumnName(tableName);
+        
+        String sql = String.format("DELETE FROM %s.%s WHERE %s = ?", dbName, tableName, idColumn);
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setLong(1, id);
+            int deleted = stmt.executeUpdate();
+            if (deleted == 0) {
+                logger.warn("⚠️ No record found to delete for id={} in {}.{}", id, dbName, tableName);
+            } else {
+                logger.info("✅ Deleted id={} from {}.{}", id, dbName, tableName);
+            }
+        }
+    }
+    
+    private String getIdColumnName(String tableName) {
+        switch (tableName.toLowerCase()) {
+            case "packageaccount":
+                return "id_packageaccount";
+            case "packageaccountreserve":
+                return "id_packageaccountreserve";
+            default:
+                // Generic fallback - assumes id column follows pattern id_<tablename>
+                return "id_" + tableName.toLowerCase();
+        }
+    }
+
+    private void persistDeleteLog(Connection conn, String consumerName, long offset, String dbName, long entityId, String tableName) throws SQLException {
+        // Use appropriate log table based on entity type
+        String logTable = tableName.equals("packageaccountreserve") ? "reserve_log" : "delta_log";
+        String idColumn = tableName.equals("packageaccountreserve") ? "reserve_id" : "account_id";
+        
+        String sql = String.format("""
+        INSERT INTO %s.%s (consumer_name, processed_at, offset, db_name, %s, action_type)
         VALUES (?, NOW(), ?, ?, ?, 'DELETE')
-    """, dbName);
+    """, dbName, logTable, idColumn);
 
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, consumerName);
             ps.setLong(2, offset);
             ps.setString(3, dbName);
-            ps.setLong(4, accountId);
+            ps.setLong(4, entityId);
             ps.executeUpdate();
         }
     }
 
-    private void persistProcessedDeltaLogs(Connection conn, String consumerName, long offset, String dbName, long accountId, BigDecimal amount) throws SQLException {
+    private void persistProcessedDeltaLogs(Connection conn, String consumerName, long offset, String dbName, long accountId, BigDecimal amount, String tableName) throws SQLException {
         // Sanitize or validate dbName if it comes from user input
         String sql = String.format("""
         INSERT INTO %s.delta_log (consumer_name, processed_at, offset, db_name, account_id, amount)
@@ -362,7 +490,7 @@ public class PrepaidConsumer implements Runnable, ConsumerToQueue<PackageAccDelt
     }
     private String loadDbNameFromProperties() {
         Properties properties = new Properties();
-        try (InputStream input = PrepaidConsumer.class.getClassLoader()
+        try (InputStream input = UniversalConsumer.class.getClassLoader()
                 .getResourceAsStream("application.properties")) {
 
             if (input == null) {

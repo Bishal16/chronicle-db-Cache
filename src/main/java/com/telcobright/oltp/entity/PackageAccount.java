@@ -1,47 +1,46 @@
 package com.telcobright.oltp.entity;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import jakarta.persistence.*;
 import lombok.Data;
 
 import java.math.BigDecimal;
 import java.util.Optional;
+import com.telcobright.core.cache.annotations.Column;
+import com.telcobright.core.cache.annotations.Table;
 
-@Entity
 @Table(name = "packageaccount")
 @Data
-public class PackageAccount implements CacheableEntity {
+public class PackageAccount {
 
-    @Id
-    @Column(name = "id_packageaccount")
+    @Column(name = "id_packageaccount", primaryKey = true)
     @JsonProperty("id_packageaccount")
     private Long id;
 
-    @Column(name = "id_PackagePurchase", nullable = false)
+    @Column(name = "id_PackagePurchase")
     @JsonProperty("id_PackagePurchase")
     private Long packagePurchaseId;
 
-    @Column(nullable = false)
+    @Column(name = "name")
     @JsonProperty("name")
     private String name;
 
-    @Column(nullable = false, precision = 20, scale = 6)
+    @Column(name = "lastAmount")
     @JsonProperty("lastAmount")
     private BigDecimal lastAmount;
 
-    @Column(nullable = false, precision = 20, scale = 6)
+    @Column(name = "balanceBefore")
     @JsonProperty("balanceBefore")
     private BigDecimal balanceBefore;
 
-    @Column(nullable = false, precision = 20, scale = 6)
+    @Column(name = "balanceAfter")
     @JsonProperty("balanceAfter")
     private BigDecimal balanceAfter;
 
-    @Column(nullable = false)
+    @Column(name = "uom")
     @JsonProperty("uom")
     private String uom;
 
-    @Column(nullable = false)
+    @Column(name = "isSelected")
     @JsonProperty("isSelected")
     private Boolean isSelected = false;
 
@@ -60,15 +59,6 @@ public class PackageAccount implements CacheableEntity {
         this.isSelected = Optional.ofNullable(isSelected).orElse(false);
     }
 
-    public void insert(EntityManager entityManager) {
-        entityManager.persist(this);
-    }
-
-    public PackageAccount update(EntityManager entityManager) {
-        return entityManager.merge(this);
-    }
-
-    @Override
     public synchronized void applyDelta(BigDecimal deltaAmount) {
         if (deltaAmount == null || deltaAmount.signum() <= 0) {
             throw new IllegalArgumentException("Delta amount must be a positive value for subtract operation");
@@ -76,10 +66,5 @@ public class PackageAccount implements CacheableEntity {
         this.lastAmount = deltaAmount;
         this.balanceBefore = this.balanceAfter;
         this.balanceAfter = this.balanceAfter.subtract(deltaAmount);
-    }
-
-    @Override
-    public String getTableName() {
-        return "packageaccount";
     }
 }

@@ -1,6 +1,6 @@
 package com.telcobright.oltp.service;
 
-import com.telcobright.oltp.dbCache.PackageAccountCache;
+import com.telcobright.oltp.dbCache.CacheManager;
 import com.telcobright.oltp.queue.chronicle.ChronicleInstance;
 import com.zaxxer.hikari.HikariDataSource;
 import io.quarkus.runtime.Startup;
@@ -16,7 +16,7 @@ public class ConsumerFactory {
     private final boolean replayOnStart;
     private final HikariDataSource dataSource;
     private final ChronicleInstance chronicleInstance;
-    private final PackageAccountCache packageAccountCache;
+    private final CacheManager cacheManager;
 
     @Inject
     public ConsumerFactory(
@@ -24,30 +24,30 @@ public class ConsumerFactory {
             @ConfigProperty(name = "chronicle.queue.replay.on.start", defaultValue = "true") boolean replayOnStart,
             HikariDataSource dataSource,
             ChronicleInstance chronicleInstance,
-            PackageAccountCache packageAccountCache
+            CacheManager cacheManager
     ) {
         this.offsetTable = offsetTable;
         this.replayOnStart = replayOnStart;
         this.dataSource = dataSource;
         this.chronicleInstance = chronicleInstance;
-        this.packageAccountCache = packageAccountCache;
+        this.cacheManager = cacheManager;
     }
     @Inject
     PendingStatusChecker pendingStatusChecker;
 
     @PostConstruct
     public void createConsumersAndSubscribe() {
-        PrepaidConsumer consumer = new PrepaidConsumer(
+        // Create UniversalConsumer that handles all entity types based on table name in WAL
+        UniversalConsumer universalConsumer = new UniversalConsumer(
                 chronicleInstance.getQueue(),
                 chronicleInstance.getAppender(),
-                "prepaid-consumer",
+                "universal-consumer",
                 dataSource,
                 offsetTable,
                 replayOnStart,
                 pendingStatusChecker,
-                packageAccountCache
+                cacheManager
         );
-
-        chronicleInstance.subscribe(consumer);
+        chronicleInstance.subscribe(universalConsumer);
     }
 }

@@ -1,48 +1,47 @@
 package com.telcobright.oltp.entity;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import jakarta.persistence.*;
 import lombok.Data;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Optional;
+import com.telcobright.core.cache.annotations.Column;
+import com.telcobright.core.cache.annotations.Table;
 
-@Entity
 @Table(name = "packageaccountreserve")
 @Data
-public class PackageAccountReserve implements CacheableEntity {
+public class PackageAccountReserve {
 
-    @Id
-    @Column(name = "id_packageaccountreserve")
-    @JsonProperty("id_packageaccountreserve")
+    @Column(name = "id", primaryKey = true)
+    @JsonProperty("id")
     private Long id;
 
-    @Column(name = "id_packageaccount", nullable = false)
-    @JsonProperty("id_packageaccount")
+    @Column(name = "packageAccountId")
+    @JsonProperty("packageAccountId")
     private Long packageAccountId;
 
-    @Column(name = "sessionId", nullable = false)
+    @Column(name = "sessionId")
     @JsonProperty("sessionId")
     private String sessionId;
 
-    @Column(nullable = false, precision = 20, scale = 6)
+    @Column(name = "reservedAmount")
     @JsonProperty("reservedAmount")
     private BigDecimal reservedAmount;
 
-    @Column(nullable = false)
+    @Column(name = "reservedAt")
     @JsonProperty("reservedAt")
     private LocalDateTime reservedAt;
 
-    @Column
+    @Column(name = "releasedAt")
     @JsonProperty("releasedAt")
     private LocalDateTime releasedAt;
 
-    @Column(nullable = false)
+    @Column(name = "status")
     @JsonProperty("status")
     private String status; // RESERVED, RELEASED, EXPIRED
 
-    @Column(nullable = false, precision = 20, scale = 6)
+    @Column(name = "currentReserve")
     @JsonProperty("currentReserve")
     private BigDecimal currentReserve;
 
@@ -61,7 +60,6 @@ public class PackageAccountReserve implements CacheableEntity {
         this.currentReserve = currentReserve;
     }
 
-    @Override
     public synchronized void applyDelta(BigDecimal deltaAmount) {
         if (deltaAmount == null) {
             throw new IllegalArgumentException("Delta amount must not be null");
@@ -87,16 +85,4 @@ public class PackageAccountReserve implements CacheableEntity {
         }
     }
 
-    @Override
-    public String getTableName() {
-        return "packageaccountreserve";
-    }
-
-    public void insert(EntityManager entityManager) {
-        entityManager.persist(this);
-    }
-
-    public PackageAccountReserve update(EntityManager entityManager) {
-        return entityManager.merge(this);
-    }
 }

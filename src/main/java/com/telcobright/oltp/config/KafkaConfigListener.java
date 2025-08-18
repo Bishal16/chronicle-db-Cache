@@ -1,6 +1,6 @@
 package com.telcobright.oltp.config;
 
-import com.telcobright.oltp.dbCache.PackageAccountCache;
+import com.telcobright.oltp.dbCache.CacheManager;
 import com.telcobright.oltp.entity.PackageAccount;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -15,7 +15,7 @@ import java.util.Base64;
 @ApplicationScoped
 public class KafkaConfigListener {
     @Inject
-    PackageAccountCache packageAccountCache;
+    CacheManager cacheManager;
 
     private static final Logger logger = LoggerFactory.getLogger(KafkaConfigListener.class);
 
@@ -57,7 +57,7 @@ public class KafkaConfigListener {
         newPackageAccount.setUom(after.uom);
         newPackageAccount.setIsSelected(after.isSelected != null && after.isSelected == 1);
 
-        packageAccountCache.updateAccountCache(dbName, newPackageAccount);
+        cacheManager.updateAccountCache(dbName, newPackageAccount);
     }
 
     private BigDecimal decodeBase64Decimal(String base64Value, int scale) {
