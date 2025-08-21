@@ -10,7 +10,7 @@ import net.openhft.chronicle.queue.RollCycle;
 import net.openhft.chronicle.queue.RollCycles;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
-@Startup
+// @Startup  // Temporarily disabled for testing gRPC
 @ApplicationScoped
 public class ChronicleInstanceFactory {
 
@@ -21,8 +21,10 @@ public class ChronicleInstanceFactory {
             @ConfigProperty(name = "chronicle.queue.path") String queuePath,
             @ConfigProperty(name = "chronicle.queue.roll-cycle", defaultValue = "DAILY") String rollCycleName
     ) {
-        RollCycle rollCycle = mapRollCycle(rollCycleName);
-        this.chronicleInstance = new ChronicleInstance(queuePath, rollCycle);
+        // Temporarily disabled for testing gRPC
+        // RollCycle rollCycle = mapRollCycle(rollCycleName);
+        // this.chronicleInstance = new ChronicleInstance(queuePath, rollCycle);
+        this.chronicleInstance = null;
     }
 
     @Produces

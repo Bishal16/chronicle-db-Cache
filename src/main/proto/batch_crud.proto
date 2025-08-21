@@ -1,0 +1,127 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "com.telcobright.oltp.grpc.batch";
+option java_outer_classname = "BatchCrudProto";
+
+package batchcrud;
+
+// Service definition for batch CRUD operations
+service BatchCrudService {
+  // Execute a batch of operations atomically
+  rpc ExecuteBatch(BatchRequest) returns (BatchResponse);
+}
+
+// Request message for batch operations
+message BatchRequest {
+  string transaction_id = 1;
+  string db_name = 2;
+  repeated BatchOperation operations = 3;
+}
+
+// Individual operation in a batch
+message BatchOperation {
+  OperationType operation_type = 1;
+  EntityType entity_type = 2;
+  
+  oneof payload {
+    PackageAccount package_account = 3;
+    PackageAccountReserve package_account_reserve = 4;
+    PackageAccountDelta package_account_delta = 5;
+    PackageAccountReserveDelta package_account_reserve_delta = 6;
+    PackageAccountDeleteDelta package_account_delete_delta = 7;
+    PackageAccountReserveDeleteDelta package_account_reserve_delete_delta = 8;
+  }
+}
+
+// Operation types
+enum OperationType {
+  INSERT = 0;
+  UPDATE = 1;
+  DELETE = 2;
+  UPDATE_DELTA = 3;  // For delta-based updates
+  DELETE_DELTA = 4;  // For delta-based deletes
+}
+
+// Entity types
+enum EntityType {
+  PACKAGE_ACCOUNT = 0;
+  PACKAGE_ACCOUNT_RESERVE = 1;
+}
+
+// PackageAccount entity (matching Java entity)
+message PackageAccount {
+  int64 id = 1;  // maps to id_packageaccount
+  int64 package_purchase_id = 2;  // maps to id_PackagePurchase
+  string name = 3;
+  string last_amount = 4;  // Using string for BigDecimal
+  string balance_before = 5;  // Using string for BigDecimal
+  string balance_after = 6;  // Using string for BigDecimal
+  string uom = 7;
+  bool is_selected = 8;
+}
+
+// PackageAccountReserve entity (matching Java entity)
+message PackageAccountReserve {
+  int64 id = 1;
+  int64 package_account_id = 2;  // maps to packageAccountId
+  string session_id = 3;
+  string reserved_amount = 4;  // Using string for BigDecimal
+  string reserved_at = 5;  // ISO 8601 format for LocalDateTime
+  string released_at = 6;  // ISO 8601 format for LocalDateTime
+  string status = 7;  // RESERVED, RELEASED, EXPIRED
+  string current_reserve = 8;  // Using string for BigDecimal
+}
+
+// PackageAccountDelta - for balance updates
+message PackageAccountDelta {
+  string db_name = 1;
+  int64 account_id = 2;
+  string amount = 3;  // Using string for BigDecimal
+}
+
+// PackageAccountReserveDelta - for reserve updates
+message PackageAccountReserveDelta {
+  string db_name = 1;
+  int64 reserve_id = 2;
+  string amount = 3;  // Using string for BigDecimal
+  string session_id = 4;
+}
+
+// PackageAccountDeleteDelta - for account deletion
+message PackageAccountDeleteDelta {
+  string db_name = 1;
+  int64 account_id = 2;
+}
+
+// PackageAccountReserveDeleteDelta - for reserve deletion
+message PackageAccountReserveDeleteDelta {
+  string db_name = 1;
+  int64 reserve_id = 2;
+}
+
+// Response for batch operations
+message BatchResponse {
+  bool success = 1;
+  string message = 2;
+  string transaction_id = 3;
+  int32 operations_processed = 4;
+  repeated OperationResult results = 5;
+  ErrorDetails error = 6;
+}
+
+// Individual operation result
+message OperationResult {
+  int32 operation_index = 1;
+  bool success = 2;
+  string message = 3;
+  EntityType entity_type = 4;
+  OperationType operation_type = 5;
+}
+
+// Error details
+message ErrorDetails {
+  string code = 1;
+  string message = 2;
+  int32 failed_operation_index = 3;
+}

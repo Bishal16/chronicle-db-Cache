@@ -128,6 +128,20 @@
             <artifactId>quarkus-messaging-kafka</artifactId>
         </dependency>
 
+        <!-- gRPC Protobuf dependency for client -->
+        <dependency>
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-protobuf</artifactId>
+            <version>1.58.0</version>
+        </dependency>
+
+        <!-- PerfMark for gRPC -->
+        <dependency>
+            <groupId>io.perfmark</groupId>
+            <artifactId>perfmark-api</artifactId>
+            <version>0.26.0</version>
+        </dependency>
+
     </dependencies>
 
     <build>
