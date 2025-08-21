@@ -62,7 +62,6 @@ public class CacheManager {
             try {
                 logger.info("Pending replay completed ✅. Initializing caches...");
                 
-                // Pre-build SQL statements at startup for the consumer
                 SqlStatementCache.initializeAll(
                     PackageAccount.class,
                     PackageAccountReserve.class
@@ -107,25 +106,27 @@ public class CacheManager {
     
     private List<String> discoverDatabases() throws SQLException {
         List<String> databases = new ArrayList<>();
-        
-        String sql = String.format("""
-            SELECT DISTINCT accountDbName 
-            FROM %s.reselleraccountdb 
-            WHERE accountDbName IS NOT NULL
-        """, adminDbConfig);
-        
+
+        String sql = """
+        SELECT schema_name 
+        FROM information_schema.schemata 
+        WHERE schema_name LIKE 'res\\_%'
+        """;
+
         try (Connection conn = dataSource.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql);
              ResultSet rs = stmt.executeQuery()) {
-            
+
             while (rs.next()) {
-                databases.add(rs.getString("accountDbName"));
+                databases.add(rs.getString("schema_name"));
             }
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
         
-        if (databases.isEmpty()) {
+//        if (databases.isEmpty()) {
             databases.add(adminDbConfig);
-        }
+//        }
         
         logger.info("Discovered {} databases: {}", databases.size(), databases);
         return databases;
