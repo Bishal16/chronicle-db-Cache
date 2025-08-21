@@ -5,10 +5,13 @@ import net.openhft.chronicle.wire.WireOut;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
- * Generic WAL writer that serializes WALEntry objects to Chronicle Queue.
+ * WAL writer that always writes entries as batches for transactional consistency.
+ * Even single entries are written as a batch of size 1.
  */
 public class WALWriter {
     private static final Logger logger = LoggerFactory.getLogger(WALWriter.class);
@@ -19,58 +22,73 @@ public class WALWriter {
     }
     
     /**
-     * Write a WAL entry to the Chronicle Queue.
-     * @param entry The WAL entry to writePackageAccountCache cacheManager;  // Injected by Quarkus
-     * @return The index where the entry was written
-     */
-    public long write(WALEntry entry) {
-        appender.writeDocument(w -> {
-            writeEntry(w, entry);
-        });
-        
-        long index = appender.lastIndexAppended();
-        logger.debug("Wrote WAL entry at index: {} for {}.{} operation: {}", 
-            index, entry.getDbName(), entry.getTableName(), entry.getOperationType());
-        return index;
-    }
-    
-    /**
-     * Write multiple WAL entries as a batch transaction.
-     * @param entries The WAL entries to write
-     * @param transactionId Transaction ID for the batch
+     * Write WAL entries as a batch transaction.
+     * This is the ONLY write method - all writes are batches for consistency.
+     * 
+     * @param entries The WAL entries to write (can be a single entry)
      * @return The index where the batch was written
      */
-    public long writeBatch(WALEntry[] entries, String transactionId) {
+    public long write(List<WALEntry> entries) {
+        if (entries == null || entries.isEmpty()) {
+            logger.warn("Attempted to write empty batch to WAL");
+            return -1;
+        }
+        
+        // Generate transaction ID if not present
+        String transactionId = null;
+        if (!entries.isEmpty() && entries.get(0).getTransactionId() != null) {
+            transactionId = entries.get(0).getTransactionId();
+        } else {
+            transactionId = "TXN_" + System.currentTimeMillis() + "_" + UUID.randomUUID();
+        }
+        
+        final String txId = transactionId;
+        
         appender.writeDocument(w -> {
-            w.write("transactionId").text(transactionId);
-            w.write("batchSize").int32(entries.length);
+            w.write("transactionId").text(txId);
+            w.write("batchSize").int32(entries.size());
+            w.write("timestamp").int64(System.currentTimeMillis());
             
-            // Write each entry individually instead of using array
-            for (int i = 0; i < entries.length; i++) {
+            // Write each entry in the batch
+            for (int i = 0; i < entries.size(); i++) {
                 final int idx = i;
-                w.write("entry_" + i).marshallable(m -> writeEntry(m, entries[idx]));
+                w.write("entry_" + i).marshallable(m -> writeEntry(m, entries.get(idx)));
             }
         });
         
         long index = appender.lastIndexAppended();
-        logger.debug("Wrote batch WAL entry at index: {} with {} entries, txId: {}", 
-            index, entries.length, transactionId);
+        
+        if (entries.size() == 1) {
+            logger.debug("Wrote single entry as batch at index: {} for {}.{}, txId: {}", 
+                index, entries.get(0).getDbName(), entries.get(0).getTableName(), txId);
+        } else {
+            logger.debug("Wrote batch of {} entries at index: {}, txId: {}", 
+                entries.size(), index, txId);
+        }
+        
         return index;
     }
     
+    /**
+     * Convenience method to write a single entry as a batch of size 1
+     */
+    public long write(WALEntry entry) {
+        return write(List.of(entry));
+    }
+    
+    /**
+     * Write the contents of a single WAL entry
+     */
     private void writeEntry(WireOut wire, WALEntry entry) {
         wire.write("dbName").text(entry.getDbName());
         wire.write("tableName").text(entry.getTableName());
         wire.write("operationType").text(entry.getOperationType().name());
-        wire.write("timestamp").int64(entry.getTimestamp());
-        
-        if (entry.getTransactionId() != null) {
-            wire.write("transactionId").text(entry.getTransactionId());
-        }
         
         // Write data map
-        wire.write("dataSize").int32(entry.getData().size());
-        for (Map.Entry<String, Object> dataEntry : entry.getData().entrySet()) {
+        Map<String, Object> data = entry.getData();
+        wire.write("dataSize").int32(data.size());
+        
+        for (Map.Entry<String, Object> dataEntry : data.entrySet()) {
             wire.write("key").text(dataEntry.getKey());
             
             Object value = dataEntry.getValue();

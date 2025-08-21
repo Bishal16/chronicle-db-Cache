@@ -5,6 +5,11 @@ import com.telcobright.oltp.entity.PackageAccount;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 /**
  * Cache for PackageAccount entities.
  * Structure: ConcurrentHashMap<dbname, ConcurrentHashMap<Long, PackageAccount>>
@@ -29,51 +34,38 @@ public class PackageAccountCache extends EntityCache<Long, PackageAccount> {
     }
     
     /**
-     * Update balance for an account
-     * @param dbName Database name
-     * @param accountId Account ID
-     * @param deltaAmount Amount to subtract from balance
-     * @return true if successful, false if account not found
+     * Helper method to prepare accounts with balance updates for batch processing
+     * @param updates Map of dbName -> Map of accountId -> deltaAmount
+     * @return Map of dbName -> List of updated PackageAccount entities
      */
-    public boolean updateBalance(String dbName, Long accountId, java.math.BigDecimal deltaAmount) {
-        PackageAccount account = get(dbName, accountId);
-        if (account == null) {
-            logger.warn("Account not found for balance update: db={}, id={}", dbName, accountId);
-            return false;
+    public Map<String, List<PackageAccount>> prepareBalanceUpdates(Map<String, Map<Long, java.math.BigDecimal>> updates) {
+        Map<String, List<PackageAccount>> preparedUpdates = new HashMap<>();
+        
+        for (Map.Entry<String, Map<Long, java.math.BigDecimal>> dbEntry : updates.entrySet()) {
+            String dbName = dbEntry.getKey();
+            List<PackageAccount> accountList = new ArrayList<>();
+            
+            for (Map.Entry<Long, java.math.BigDecimal> accountEntry : dbEntry.getValue().entrySet()) {
+                Long accountId = accountEntry.getKey();
+                java.math.BigDecimal deltaAmount = accountEntry.getValue();
+                
+                PackageAccount account = get(dbName, accountId);
+                if (account == null) {
+                    logger.warn("Account not found for batch update: db={}, id={}", dbName, accountId);
+                    continue;
+                }
+                
+                // Apply the delta
+                account.applyDelta(deltaAmount);
+                accountList.add(account);
+            }
+            
+            if (!accountList.isEmpty()) {
+                preparedUpdates.put(dbName, accountList);
+            }
         }
         
-        // Apply the delta
-        account.applyDelta(deltaAmount);
-        
-        // Update in cache
-        update(dbName, accountId, account);
-        
-        logger.debug("Updated balance for account {} in {}: delta={}, newBalance={}", 
-            accountId, dbName, deltaAmount, account.getBalanceAfter());
-        
-        return true;
+        return preparedUpdates;
     }
-    
-    /**
-     * Get available balance for an account
-     * @param dbName Database name
-     * @param accountId Account ID
-     * @return Available balance or null if account not found
-     */
-    public java.math.BigDecimal getAvailableBalance(String dbName, Long accountId) {
-        PackageAccount account = get(dbName, accountId);
-        return account != null ? account.getBalanceAfter() : null;
-    }
-    
-    /**
-     * Check if account has sufficient balance
-     * @param dbName Database name
-     * @param accountId Account ID
-     * @param requiredAmount Amount to check
-     * @return true if sufficient balance, false otherwise
-     */
-    public boolean hasSufficientBalance(String dbName, Long accountId, java.math.BigDecimal requiredAmount) {
-        java.math.BigDecimal balance = getAvailableBalance(dbName, accountId);
-        return balance != null && balance.compareTo(requiredAmount) >= 0;
-    }
+
 }

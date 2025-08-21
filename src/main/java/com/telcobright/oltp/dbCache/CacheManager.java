@@ -169,7 +169,7 @@ public class CacheManager {
     }
     
     /**
-     * Update PackageAccount balances (batch)
+     * Update PackageAccount balances (batch) - writes as single transaction to WAL
      */
     public void updatePackageAccounts(List<PackageAccDelta> deltas) {
         if (!isInitialized.get() || packageAccountCache == null) {
@@ -177,18 +177,28 @@ public class CacheManager {
             return;
         }
         
-        for (PackageAccDelta delta : deltas) {
-            boolean success = packageAccountCache.updateBalance(
-                delta.getDbName(), 
-                delta.getAccountId(), 
-                delta.getAmount()
-            );
-            
-            if (!success) {
-                logger.warn("Failed to update balance for account {} in {}", 
-                    delta.getAccountId(), delta.getDbName());
-            }
+        if (deltas == null || deltas.isEmpty()) {
+            return;
         }
+        
+        // Group deltas by database for efficient batch processing
+        Map<String, Map<Long, BigDecimal>> groupedDeltas = new HashMap<>();
+        for (PackageAccDelta delta : deltas) {
+            groupedDeltas.computeIfAbsent(delta.getDbName(), k -> new HashMap<>())
+                        .put(delta.getAccountId(), delta.getAmount());
+        }
+        
+        // Generate transaction ID for this batch
+        String transactionId = "TXN_" + System.currentTimeMillis() + "_" + UUID.randomUUID().toString();
+        
+        // Prepare the updated entities
+        Map<String, List<PackageAccount>> preparedUpdates = packageAccountCache.prepareBalanceUpdates(groupedDeltas);
+        
+        // Use the generic batch update method
+        packageAccountCache.applyUpdates(preparedUpdates, transactionId);
+        
+        logger.info("Processed batch of {} balance updates as transaction: {}", 
+            deltas.size(), transactionId);
     }
     
     /**
@@ -204,6 +214,7 @@ public class CacheManager {
     
     /**
      * Update or insert a PackageAccount in cache (for Kafka listener)
+     * Uses the generic put method which writes to WAL
      */
     public void updateAccountCache(String dbName, PackageAccount account) {
         if (!isInitialized.get() || packageAccountCache == null) {
@@ -216,6 +227,7 @@ public class CacheManager {
             return;
         }
         
+        // Use the generic put method (writes single entry to WAL)
         packageAccountCache.put(dbName, account);
         logger.debug("Updated account {} in cache for {}", account.getId(), dbName);
     }

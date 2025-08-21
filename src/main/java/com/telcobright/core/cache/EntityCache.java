@@ -101,7 +101,162 @@ public abstract class EntityCache<K, T> {
     }
     
     /**
+     * Apply batch inserts - writes to WAL first, then updates cache
+     * @param entities Map of dbName -> List of entities to insert
+     * @param transactionId Transaction ID for the batch
+     * @throws RuntimeException if WAL write fails
+     */
+    public void applyInserts(Map<String, List<T>> entities, String transactionId) {
+        if (entities == null || entities.isEmpty()) {
+            return;
+        }
+        
+        List<WALEntry> walEntries = new ArrayList<>();
+        
+        // First, prepare all WAL entries
+        for (Map.Entry<String, List<T>> dbEntry : entities.entrySet()) {
+            String dbName = dbEntry.getKey();
+            
+            for (T entity : dbEntry.getValue()) {
+                WALEntry walEntry = createWALEntry(dbName, entity, WALEntry.OperationType.INSERT);
+                walEntry.setTransactionId(transactionId);
+                walEntries.add(walEntry);
+            }
+        }
+        
+        // Write to WAL FIRST - if this fails, exception is thrown and cache is not updated
+        if (!walEntries.isEmpty()) {
+            if (walWriter == null) {
+                throw new IllegalStateException("WALWriter not initialized");
+            }
+            walWriter.write(walEntries);
+            logger.info("Wrote batch of {} inserts to WAL for {}, txId: {}", 
+                walEntries.size(), tableName, transactionId);
+        }
+        
+        // Only update cache after successful WAL write
+        for (Map.Entry<String, List<T>> dbEntry : entities.entrySet()) {
+            String dbName = dbEntry.getKey();
+            ConcurrentHashMap<K, T> dbCache = getOrCreateDbCache(dbName);
+            
+            for (T entity : dbEntry.getValue()) {
+                K key = extractKey(entity);
+                dbCache.put(key, entity);
+            }
+        }
+    }
+    
+    /**
+     * Apply batch updates - writes to WAL first, then updates cache
+     * @param entities Map of dbName -> List of entities to update
+     * @param transactionId Transaction ID for the batch
+     * @throws RuntimeException if WAL write fails
+     */
+    public void applyUpdates(Map<String, List<T>> entities, String transactionId) {
+        if (entities == null || entities.isEmpty()) {
+            return;
+        }
+        
+        List<WALEntry> walEntries = new ArrayList<>();
+        
+        // First, prepare all WAL entries
+        for (Map.Entry<String, List<T>> dbEntry : entities.entrySet()) {
+            String dbName = dbEntry.getKey();
+            
+            for (T entity : dbEntry.getValue()) {
+                WALEntry walEntry = createWALEntry(dbName, entity, WALEntry.OperationType.UPDATE);
+                walEntry.setTransactionId(transactionId);
+                walEntries.add(walEntry);
+            }
+        }
+        
+        // Write to WAL FIRST - if this fails, exception is thrown and cache is not updated
+        if (!walEntries.isEmpty()) {
+            if (walWriter == null) {
+                throw new IllegalStateException("WALWriter not initialized");
+            }
+            walWriter.write(walEntries);
+            logger.info("Wrote batch of {} updates to WAL for {}, txId: {}", 
+                walEntries.size(), tableName, transactionId);
+        }
+        
+        // Only update cache after successful WAL write
+        for (Map.Entry<String, List<T>> dbEntry : entities.entrySet()) {
+            String dbName = dbEntry.getKey();
+            ConcurrentHashMap<K, T> dbCache = getOrCreateDbCache(dbName);
+            
+            for (T entity : dbEntry.getValue()) {
+                K key = extractKey(entity);
+                dbCache.put(key, entity);
+            }
+        }
+    }
+    
+    /**
+     * Apply batch deletes - writes to WAL first, then updates cache
+     * @param keys Map of dbName -> List of keys to delete
+     * @param transactionId Transaction ID for the batch
+     * @throws RuntimeException if WAL write fails
+     */
+    public void applyDeletes(Map<String, List<K>> keys, String transactionId) {
+        if (keys == null || keys.isEmpty()) {
+            return;
+        }
+        
+        List<WALEntry> walEntries = new ArrayList<>();
+        Map<String, Map<K, T>> entitiesToDelete = new HashMap<>();
+        
+        // First, prepare all WAL entries and collect entities
+        for (Map.Entry<String, List<K>> dbEntry : keys.entrySet()) {
+            String dbName = dbEntry.getKey();
+            ConcurrentHashMap<K, T> dbCache = cache.get(dbName);
+            
+            if (dbCache != null) {
+                Map<K, T> dbEntitiesToDelete = new HashMap<>();
+                
+                for (K key : dbEntry.getValue()) {
+                    T entity = dbCache.get(key);  // Get but don't remove yet
+                    
+                    if (entity != null) {
+                        WALEntry walEntry = createWALEntry(dbName, entity, WALEntry.OperationType.DELETE);
+                        walEntry.setTransactionId(transactionId);
+                        walEntries.add(walEntry);
+                        dbEntitiesToDelete.put(key, entity);
+                    }
+                }
+                
+                if (!dbEntitiesToDelete.isEmpty()) {
+                    entitiesToDelete.put(dbName, dbEntitiesToDelete);
+                }
+            }
+        }
+        
+        // Write to WAL FIRST - if this fails, exception is thrown and cache is not updated
+        if (!walEntries.isEmpty()) {
+            if (walWriter == null) {
+                throw new IllegalStateException("WALWriter not initialized");
+            }
+            walWriter.write(walEntries);
+            logger.info("Wrote batch of {} deletes to WAL for {}, txId: {}", 
+                walEntries.size(), tableName, transactionId);
+        }
+        
+        // Only remove from cache after successful WAL write
+        for (Map.Entry<String, Map<K, T>> dbEntry : entitiesToDelete.entrySet()) {
+            String dbName = dbEntry.getKey();
+            ConcurrentHashMap<K, T> dbCache = cache.get(dbName);
+            
+            if (dbCache != null) {
+                for (K key : dbEntry.getValue().keySet()) {
+                    dbCache.remove(key);
+                }
+            }
+        }
+    }
+    
+    /**
      * Load all data from a specific database
+     * This does NOT write to WAL since it's loading existing data
      */
     public void loadFromDatabase(String dbName) throws SQLException {
         if (dataSource == null) {
@@ -129,6 +284,15 @@ public abstract class EntityCache<K, T> {
     }
     
     /**
+     * Put an entity directly into cache without WAL write
+     * Used for loading data from database or replay
+     */
+    protected void putDirectToCache(String dbName, T entity) {
+        K key = extractKey(entity);
+        cache.computeIfAbsent(dbName, k -> new ConcurrentHashMap<>()).put(key, entity);
+    }
+    
+    /**
      * Get an entity by key from a specific database
      */
     public T get(String dbName, K key) {
@@ -138,43 +302,62 @@ public abstract class EntityCache<K, T> {
     
     /**
      * Put an entity into cache for a specific database
+     * Writes to WAL first, then updates cache
+     * @throws RuntimeException if WAL write fails
      */
     public void put(String dbName, T entity) {
+        if (walWriter == null) {
+            throw new IllegalStateException("WALWriter not initialized");
+        }
+        
+        // Write to WAL FIRST - if this fails, exception is thrown and cache is not updated
+        writeToWAL(dbName, entity, WALEntry.OperationType.UPSERT);
+        
+        // Only update cache after successful WAL write
         K key = extractKey(entity);
         cache.computeIfAbsent(dbName, k -> new ConcurrentHashMap<>()).put(key, entity);
-        
-        // Write to WAL if available
-        if (walWriter != null) {
-            writeToWAL(dbName, entity, WALEntry.OperationType.UPSERT);
-        }
     }
     
     /**
      * Update an entity in cache
+     * Writes to WAL first, then updates cache
+     * @throws RuntimeException if WAL write fails
      */
     public void update(String dbName, K key, T entity) {
+        if (walWriter == null) {
+            throw new IllegalStateException("WALWriter not initialized");
+        }
+        
         ConcurrentHashMap<K, T> dbCache = cache.get(dbName);
         if (dbCache != null) {
-            dbCache.put(key, entity);
+            // Write to WAL FIRST - if this fails, exception is thrown and cache is not updated
+            writeToWAL(dbName, entity, WALEntry.OperationType.UPDATE);
             
-            // Write to WAL if available
-            if (walWriter != null) {
-                writeToWAL(dbName, entity, WALEntry.OperationType.UPDATE);
-            }
+            // Only update cache after successful WAL write
+            dbCache.put(key, entity);
         }
     }
     
     /**
      * Delete an entity from cache
+     * Writes to WAL first, then updates cache
+     * @throws RuntimeException if WAL write fails
      */
     public void delete(String dbName, K key) {
+        if (walWriter == null) {
+            throw new IllegalStateException("WALWriter not initialized");
+        }
+        
         ConcurrentHashMap<K, T> dbCache = cache.get(dbName);
         if (dbCache != null) {
-            T removed = dbCache.remove(key);
+            T entity = dbCache.get(key);  // Get but don't remove yet
             
-            // Write to WAL if available
-            if (removed != null && walWriter != null) {
-                writeToWAL(dbName, removed, WALEntry.OperationType.DELETE);
+            if (entity != null) {
+                // Write to WAL FIRST - if this fails, exception is thrown and cache is not updated
+                writeToWAL(dbName, entity, WALEntry.OperationType.DELETE);
+                
+                // Only remove from cache after successful WAL write
+                dbCache.remove(key);
             }
         }
     }
@@ -276,9 +459,9 @@ public abstract class EntityCache<K, T> {
     }
     
     /**
-     * Write entity changes to WAL
+     * Create a WAL entry for an entity (protected for subclass use)
      */
-    private void writeToWAL(String dbName, T entity, WALEntry.OperationType operationType) {
+    protected WALEntry createWALEntry(String dbName, T entity, WALEntry.OperationType operationType) {
         try {
             Map<String, Object> data = new HashMap<>();
             
@@ -291,16 +474,25 @@ public abstract class EntityCache<K, T> {
                 }
             }
             
-            WALEntry walEntry = WALEntry.builder()
+            return WALEntry.builder()
                 .dbName(dbName)
                 .tableName(tableName)
                 .operationType(operationType)
                 .data(data)
                 .build();
-            
-            walWriter.write(walEntry);
         } catch (Exception e) {
-            logger.error("Failed to write to WAL", e);
+            logger.error("Failed to create WAL entry", e);
+            return null;
+        }
+    }
+    
+    /**
+     * Write entity changes to WAL (writes as batch of size 1)
+     */
+    private void writeToWAL(String dbName, T entity, WALEntry.OperationType operationType) {
+        WALEntry walEntry = createWALEntry(dbName, entity, operationType);
+        if (walEntry != null && walWriter != null) {
+            walWriter.write(walEntry); // This will call write(List.of(entry))
         }
     }
     

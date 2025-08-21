@@ -8,6 +8,7 @@ import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -133,7 +134,11 @@ public class UsageExample {
                 .build()
         };
         
-        walWriter.writeBatch(batchEntries, txId);
+        // Set transaction ID for all entries
+        for (WALEntry entry : batchEntries) {
+            entry.setTransactionId(txId);
+        }
+        walWriter.write(java.util.Arrays.asList(batchEntries));
         System.out.println("✅ Wrote BATCH transaction to WAL with txId: " + txId);
         
         // 8. Monitor queue statistics
@@ -198,7 +203,7 @@ public class UsageExample {
         public void transfer(Long fromAccountId, Long toAccountId, BigDecimal amount) {
             String txId = UUID.randomUUID().toString();
             
-            WALEntry[] entries = new WALEntry[] {
+            List<WALEntry> entries = List.of(
                 // Debit from source account
                 new WALEntry.Builder(dbName, "accounts", WALEntry.OperationType.UPDATE)
                     .withData("balance", "balance - " + amount) // SQL expression
@@ -218,9 +223,14 @@ public class UsageExample {
                     .withData("amount", amount)
                     .withData("transfer_date", System.currentTimeMillis())
                     .build()
-            };
+            );
             
-            walWriter.writeBatch(entries, txId);
+            // Set transaction ID for all entries
+            for (WALEntry entry : entries) {
+                entry.setTransactionId(txId);
+            }
+            
+            walWriter.write(entries);
         }
     }
 }

@@ -138,11 +138,11 @@ public abstract class ChronicleQueueCache<TEntity extends CacheableEntity, TDelt
         
         // Write to WAL
         if (!walEntries.isEmpty()) {
-            if (walEntries.size() == 1) {
-                walWriter.write(walEntries.get(0));
-            } else {
-                walWriter.writeBatch(walEntries.toArray(new WALEntry[0]), transactionId);
+            // Set transaction ID for all entries
+            for (WALEntry entry : walEntries) {
+                entry.setTransactionId(transactionId);
             }
+            walWriter.write(walEntries);
             
             logger.info("✅ Wrote {} delta(s) to WAL for {}", walEntries.size(), entityName);
         }
