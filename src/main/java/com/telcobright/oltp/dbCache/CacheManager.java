@@ -67,7 +67,7 @@ public class CacheManager {
                     PackageAccountReserve.class
                 );
                 
-                // Create separate cache instances
+
                 packageAccountCache = new PackageAccountCache();
                 packageAccountReserveCache = new PackageAccountReserveCache();
                 
@@ -76,7 +76,6 @@ public class CacheManager {
                 packageAccountCache.initialize(dataSource, walWriter);
                 packageAccountReserveCache.initialize(dataSource, walWriter);
                 
-                // Discover and load all databases
                 List<String> databases = discoverDatabases();
                 for (String dbName : databases) {
                     try {
@@ -132,11 +131,7 @@ public class CacheManager {
         return databases;
     }
     
-    // ===== PackageAccount Operations =====
-    
-    /**
-     * Get a PackageAccount from cache
-     */
+
     public PackageAccount getPackageAccount(String dbName, Long accountId) {
         if (!isInitialized.get() || packageAccountCache == null) {
             logger.warn("Cache not initialized");
@@ -168,9 +163,7 @@ public class CacheManager {
         return packageAccountCache.getAll(dbName);
     }
     
-    /**
-     * Update PackageAccount balances (batch) - writes as single transaction to WAL
-     */
+
     public void updatePackageAccounts(List<PackageAccDelta> deltas) {
         if (!isInitialized.get() || packageAccountCache == null) {
             logger.warn("Cache not initialized");
@@ -211,11 +204,7 @@ public class CacheManager {
         }
         packageAccountCache.delete(dbName, accountId);
     }
-    
-    /**
-     * Update or insert a PackageAccount in cache (for Kafka listener)
-     * Uses the generic put method which writes to WAL
-     */
+
     public void updateAccountCache(String dbName, PackageAccount account) {
         if (!isInitialized.get() || packageAccountCache == null) {
             logger.warn("Cache not initialized");

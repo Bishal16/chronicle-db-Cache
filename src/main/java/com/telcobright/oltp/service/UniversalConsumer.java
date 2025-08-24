@@ -76,9 +76,7 @@ public class UniversalConsumer implements Runnable, ConsumerToQueue<Object> {
         processLiveMessages();
     }
     
-    /**
-     * Process live messages - reading batches and writing to DB transactionally
-     */
+
     private void processLiveMessages() {
         while (running) {
             try (DocumentContext dc = tailer.readingDocument()) {
@@ -97,10 +95,7 @@ public class UniversalConsumer implements Runnable, ConsumerToQueue<Object> {
             }
         }
     }
-    
-    /**
-     * Process a batch transaction from WAL
-     */
+
     private void processBatchTransaction(DocumentContext dc) {
         Wire wire = dc.wire();
         long offset = dc.index();
@@ -132,9 +127,7 @@ public class UniversalConsumer implements Runnable, ConsumerToQueue<Object> {
         }
     }
     
-    /**
-     * Read a single WAL entry from wire
-     */
+
     private WALEntry readWALEntry(WireIn wire) {
         try {
             String dbName = wire.read("dbName").text();
