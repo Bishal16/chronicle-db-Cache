@@ -20,16 +20,16 @@ public class UsageExample {
     public static void main(String[] args) throws Exception {
         // 1. Configure DataSource
         HikariConfig hikariConfig = new HikariConfig();
-        hikariConfig.setJdbcUrl("jdbc:mysql://localhost:3306/mydb");
-        hikariConfig.setUsername("user");
-        hikariConfig.setPassword("password");
+        hikariConfig.setJdbcUrl("jdbc:mysql://103.95.96.77:3306/telcobright");
+        hikariConfig.setUsername("tbuser");
+        hikariConfig.setPassword("Takay1takaane$");
         hikariConfig.setMaximumPoolSize(10);
         
         HikariDataSource dataSource = new HikariDataSource(hikariConfig);
         
         // 2. Configure Chronicle Queue Integration
         ChronicleQueueIntegration.Config config = new ChronicleQueueIntegration.Config()
-            .withQueuePath("./my-wal-queue")
+            .withQueuePath("ex-wal-queue")
             .withOffsetDb("admin")
             .withOffsetTable("consumer_offsets")
             .withConsumerCount(2)

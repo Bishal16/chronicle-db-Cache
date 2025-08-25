@@ -23,8 +23,8 @@ public class GrpcBuilderTestClient {
         }
         
         logger.info("╔══════════════════════════════════════════════╗");
-        logger.info("║   Testing GrpcCrudPayloadBuilder              ║");
-        logger.info("║   Server: {}:{}                          ║", host, port);
+        logger.info("║   Testing GrpcCrudPayloadBuilder             ║");
+        logger.info("║   Server: {}:{}                              ║", host, port);
         logger.info("╚══════════════════════════════════════════════╝");
         
         try {
@@ -32,16 +32,16 @@ public class GrpcBuilderTestClient {
             testCase1(host, port);
             Thread.sleep(2000);
             
-            // Test Case 2: Update PackageAccount + Update Reserve  
-            testCase2(host, port);
-            Thread.sleep(2000);
-            
-            // Test Case 3: Delete Reserve
-            testCase3(host, port);
-            Thread.sleep(2000);
-            
-            // Bonus: Demonstrate chaining multiple operations
-            testComplexBatch(host, port);
+//            // Test Case 2: Update PackageAccount + Update Reserve
+//            testCase2(host, port);
+//            Thread.sleep(2000);
+//
+//            // Test Case 3: Delete Reserve
+//            testCase3(host, port);
+//            Thread.sleep(2000);
+//
+//            // Bonus: Demonstrate chaining multiple operations
+//            testComplexBatch(host, port);
             
             logger.info("\n✅ All tests completed successfully!");
             
@@ -59,12 +59,12 @@ public class GrpcBuilderTestClient {
         logger.info("└─────────────────────────────────────────────┘");
         
         BatchResponse response = GrpcCrudPayloadBuilder.create(host, port)
-            .withDatabase("res_1")
+            .withDatabase("telcobright")
             .withTransactionId("CASE1_" + UUID.randomUUID())
             // op2: Update PackageAccount delta
-            .updatePackageAccount(1001, "75.50")
+            .updatePackageAccount(199, "6")
             // op3: Insert PackageAccountReserve
-            .insertPackageAccountReserve(4001, 1001, "30.00", "SESSION_CASE1_" + UUID.randomUUID())
+            .insertPackageAccountReserve(4001, 199, "6.00", "SESSION_CASE1_" + UUID.randomUUID())
             .submit();
         
         logger.info("Response: Success={}, Message={}", response.getSuccess(), response.getMessage());
