@@ -1,0 +1,142 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] -----------------< com.example:chronicle-quarkus-demo >-----------------
+[INFO] Building chronicle-quarkus-demo 1.0.0-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- exec:3.5.1:java (default-cli) @ chronicle-quarkus-demo ---
+Press [e] to edit command line args (currently ''), [h] for more options>
+Tests paused
+Press [e] to edit command line args (currently ''), [r] to resume testing, [h] for more options>
+Press [e] to edit command line args (currently ''), [r] to resume testing, [o] Toggle test output, [h] for more options>
+Aug 25, 2025 5:29:46 PM io.quarkus.hibernate.orm.deployment.HibernateOrmProcessor configurationDescriptorBuilding
+WARN: Hibernate ORM is disabled because no JPA entities were found
+2025-08-25 17:29:42.719 [INFO] [com.telcobright.oltp.server.SimplePayloadTestServer.main()] com.telcobright.oltp.server.SimplePayloadTestServer - ╔══════════════════════════════════════════════════════════════╗
+2025-08-25 17:29:42.732 [INFO] [com.telcobright.oltp.server.SimplePayloadTestServer.main()] com.telcobright.oltp.server.SimplePayloadTestServer - ║               Simple Payload Test gRPC Server                 ║
+2025-08-25 17:29:42.732 [INFO] [com.telcobright.oltp.server.SimplePayloadTestServer.main()] com.telcobright.oltp.server.SimplePayloadTestServer - ║                  Starting on port 9000...                     ║
+2025-08-25 17:29:42.732 [INFO] [com.telcobright.oltp.server.SimplePayloadTestServer.main()] com.telcobright.oltp.server.SimplePayloadTestServer - ╚══════════════════════════════════════════════════════════════╝
+Aug 25, 2025 5:29:48 PM io.quarkus.runtime.configuration.ConfigDiagnostic unknown
+WARN: Unrecognized configuration key "quarkus.log.file.json.fields.additional-field.service" was provided; it will be ignored; verify that the dependency extension for this configuration is set or that you did not make a typo
+Aug 25, 2025 5:29:48 PM io.quarkus.runtime.configuration.ConfigDiagnostic unknown
+WARN: Unrecognized configuration key "quarkus.log.file.json" was provided; it will be ignored; verify that the dependency extension for this configuration is set or that you did not make a typo
+Aug 25, 2025 5:29:48 PM io.quarkus.runtime.configuration.ConfigDiagnostic unknown
+WARN: Unrecognized configuration key "quarkus.log.file.json.fields.additional-field.env" was provided; it will be ignored; verify that the dependency extension for this configuration is set or that you did not make a typo
+Aug 25, 2025 5:29:48 PM io.quarkus.runtime.configuration.ConfigDiagnostic unknown
+WARN: Unrecognized configuration key "quarkus.log.file.json.fields.additional-field.hostname" was provided; it will be ignored; verify that the dependency extension for this configuration is set or that you did not make a typo
+Aug 25, 2025 5:29:48 PM io.quarkus.runtime.configuration.ConfigDiagnostic unknown
+WARN: Unrecognized configuration key "quarkus.log.console.json" was provided; it will be ignored; verify that the dependency extension for this configuration is set or that you did not make a typo
+__  ____  __  _____   ___  __ ____  ______ 
+ --/ __ \/ / / / _ | / _ \/ //_/ / / / __/ 
+ -/ /_/ / /_/ / __ |/ , _/ ,< / /_/ /\ \   
+--\___\_\____/_/ |_/_/|_/_/|_|\____/___/   
+2025-08-25 17:29:48.125 [INFO] [Quarkus Main Thread] com.telcobright.oltp.server.SimplePayloadTestServer - ╔══════════════════════════════════════════════════════════════╗
+2025-08-25 17:29:48.125 [INFO] [Quarkus Main Thread] com.telcobright.oltp.server.SimplePayloadTestServer - ║               Simple Payload Test gRPC Server                 ║
+2025-08-25 17:29:48.125 [INFO] [Quarkus Main Thread] com.telcobright.oltp.server.SimplePayloadTestServer - ║                  Starting on port 9000...                     ║
+2025-08-25 17:29:48.125 [INFO] [Quarkus Main Thread] com.telcobright.oltp.server.SimplePayloadTestServer - ╚══════════════════════════════════════════════════════════════╝
+Aug 25, 2025 5:29:48 PM io.quarkus.grpc.runtime.GrpcServerRecorder initializeGrpcServer
+WARN: Using legacy gRPC support with a separate HTTP server instance. This is the current default to maintain compatibility.
+You can switch to the new unified HTTP server by setting quarkus.grpc.server.use-separate-server=false
+This change is recommended for new applications and will become the default in future versions.
+
+Aug 25, 2025 5:29:48 PM io.quarkus.runtime.ApplicationLifecycleManager run
+ERROR: Failed to start application
+java.lang.RuntimeException: Failed to start quarkus
+	at io.quarkus.runner.ApplicationImpl.doStart(Unknown Source)
+	at io.quarkus.runtime.Application.start(Application.java:101)
+	at io.quarkus.runtime.ApplicationLifecycleManager.run(ApplicationLifecycleManager.java:119)
+	at io.quarkus.runtime.Quarkus.run(Quarkus.java:80)
+	at io.quarkus.runtime.Quarkus.run(Quarkus.java:51)
+	at com.telcobright.oltp.server.SimplePayloadTestServer.main(SimplePayloadTestServer.java:32)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at io.quarkus.runner.bootstrap.StartupActionImpl$1.run(StartupActionImpl.java:121)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+Caused by: java.lang.IllegalStateException: Duplicated gRPC service: batchcrud.BatchCrudService
+	at io.quarkus.grpc.reflection.service.GrpcServerIndex.<init>(GrpcServerIndex.java:49)
+	at io.quarkus.grpc.reflection.service.ReflectionServiceV1.<init>(ReflectionServiceV1.java:32)
+	at io.quarkus.grpc.runtime.GrpcServerRecorder.buildServer(GrpcServerRecorder.java:657)
+	at io.quarkus.grpc.runtime.GrpcServerRecorder.devModeStart(GrpcServerRecorder.java:389)
+	at io.quarkus.grpc.runtime.GrpcServerRecorder.initializeGrpcServer(GrpcServerRecorder.java:160)
+	at io.quarkus.runner.recorded.GrpcServerProcessor$initializeServer1299485987.deploy_0(Unknown Source)
+	at io.quarkus.runner.recorded.GrpcServerProcessor$initializeServer1299485987.deploy(Unknown Source)
+	... 10 more
+
+Press [space] to restart, [e] to edit command line args (currently ''), [r] to resume testing, [o] Toggle test output, [h] for more options>
+Aug 25, 2025 5:29:49 PM io.quarkus.runtime.configuration.ConfigDiagnostic unknown
+WARN: Unrecognized configuration key "quarkus.log.file.json.fields.additional-field.service" was provided; it will be ignored; verify that the dependency extension for this configuration is set or that you did not make a typo
+Aug 25, 2025 5:29:49 PM io.quarkus.runtime.configuration.ConfigDiagnostic unknown
+WARN: Unrecognized configuration key "quarkus.log.file.json" was provided; it will be ignored; verify that the dependency extension for this configuration is set or that you did not make a typo
+Aug 25, 2025 5:29:49 PM io.quarkus.runtime.configuration.ConfigDiagnostic unknown
+WARN: Unrecognized configuration key "quarkus.log.file.json.fields.additional-field.env" was provided; it will be ignored; verify that the dependency extension for this configuration is set or that you did not make a typo
+Aug 25, 2025 5:29:49 PM io.quarkus.runtime.configuration.ConfigDiagnostic unknown
+WARN: Unrecognized configuration key "quarkus.log.file.json.fields.additional-field.hostname" was provided; it will be ignored; verify that the dependency extension for this configuration is set or that you did not make a typo
+Aug 25, 2025 5:29:49 PM io.quarkus.runtime.configuration.ConfigDiagnostic unknown
+WARN: Unrecognized configuration key "quarkus.log.console.json" was provided; it will be ignored; verify that the dependency extension for this configuration is set or that you did not make a typo
+Aug 25, 2025 5:29:49 PM io.quarkus.deployment.dev.IsolatedDevModeMain firstStart
+INFO: Attempting to start live reload endpoint to recover from previous Quarkus startup failure
+Press [space] to restart, [e] to edit command line args (currently ''), [h] for more options>
+Failed to start quarkus
+io.quarkus.dev.appstate.ApplicationStartException: java.lang.RuntimeException: Failed to start quarkus
+	at io.quarkus.dev.appstate.ApplicationStateNotification.waitForApplicationStart(ApplicationStateNotification.java:63)
+	at io.quarkus.runner.bootstrap.StartupActionImpl.runMainClass(StartupActionImpl.java:147)
+	at io.quarkus.deployment.dev.IsolatedDevModeMain.firstStart(IsolatedDevModeMain.java:91)
+	at io.quarkus.deployment.dev.IsolatedDevModeMain.accept(IsolatedDevModeMain.java:432)
+	at io.quarkus.deployment.dev.IDEDevModeMain.accept(IDEDevModeMain.java:76)
+	at io.quarkus.deployment.dev.IDEDevModeMain.accept(IDEDevModeMain.java:29)
+	at io.quarkus.bootstrap.app.CuratedApplication.runInCl(CuratedApplication.java:143)
+	at io.quarkus.bootstrap.app.CuratedApplication.runInAugmentClassLoader(CuratedApplication.java:98)
+	at io.quarkus.bootstrap.IDELauncherImpl.launch(IDELauncherImpl.java:93)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at io.quarkus.launcher.QuarkusLauncher.launch(QuarkusLauncher.java:56)
+	at io.quarkus.runtime.Quarkus.launchFromIDE(Quarkus.java:121)
+	at io.quarkus.runtime.Quarkus.run(Quarkus.java:95)
+	at io.quarkus.runtime.Quarkus.run(Quarkus.java:51)
+	at com.telcobright.oltp.server.SimplePayloadTestServer.main(SimplePayloadTestServer.java:32)
+	at org.codehaus.mojo.exec.ExecJavaMojo.doMain(ExecJavaMojo.java:371)
+	at org.codehaus.mojo.exec.ExecJavaMojo.doExec(ExecJavaMojo.java:360)
+	at org.codehaus.mojo.exec.ExecJavaMojo.lambda$execute$0(ExecJavaMojo.java:280)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+Caused by: java.lang.RuntimeException: Failed to start quarkus
+	at io.quarkus.runner.ApplicationImpl.doStart(Unknown Source)
+	at io.quarkus.runtime.Application.start(Application.java:101)
+	at io.quarkus.runtime.ApplicationLifecycleManager.run(ApplicationLifecycleManager.java:119)
+	at io.quarkus.runtime.Quarkus.run(Quarkus.java:80)
+	at io.quarkus.runtime.Quarkus.run(Quarkus.java:51)
+	at com.telcobright.oltp.server.SimplePayloadTestServer.main(SimplePayloadTestServer.java:32)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at io.quarkus.runner.bootstrap.StartupActionImpl$1.run(StartupActionImpl.java:121)
+	... 1 more
+Caused by: java.lang.IllegalStateException: Duplicated gRPC service: batchcrud.BatchCrudService
+	at io.quarkus.grpc.reflection.service.GrpcServerIndex.<init>(GrpcServerIndex.java:49)
+	at io.quarkus.grpc.reflection.service.ReflectionServiceV1.<init>(ReflectionServiceV1.java:32)
+	at io.quarkus.grpc.runtime.GrpcServerRecorder.buildServer(GrpcServerRecorder.java:657)
+	at io.quarkus.grpc.runtime.GrpcServerRecorder.devModeStart(GrpcServerRecorder.java:389)
+	at io.quarkus.grpc.runtime.GrpcServerRecorder.initializeGrpcServer(GrpcServerRecorder.java:160)
+	at io.quarkus.runner.recorded.GrpcServerProcessor$initializeServer1299485987.deploy_0(Unknown Source)
+	at io.quarkus.runner.recorded.GrpcServerProcessor$initializeServer1299485987.deploy(Unknown Source)
+	... 10 more
+Failed to recover after failed start
+java.lang.NullPointerException: Cannot invoke "java.util.logging.Logger.setLevel(java.util.logging.Level)" because the return value of "java.util.logging.LogManager.getLogger(String)" is null
+	at io.quarkus.vertx.http.runtime.devmode.VertxHttpHotReplacementSetup.handleFailedInitialStart(VertxHttpHotReplacementSetup.java:72)
+	at io.quarkus.deployment.dev.RuntimeUpdatesProcessor.startupFailed(RuntimeUpdatesProcessor.java:1307)
+	at io.quarkus.deployment.dev.IsolatedDevModeMain.firstStart(IsolatedDevModeMain.java:126)
+	at io.quarkus.deployment.dev.IsolatedDevModeMain.accept(IsolatedDevModeMain.java:432)
+	at io.quarkus.deployment.dev.IDEDevModeMain.accept(IDEDevModeMain.java:76)
+	at io.quarkus.deployment.dev.IDEDevModeMain.accept(IDEDevModeMain.java:29)
+	at io.quarkus.bootstrap.app.CuratedApplication.runInCl(CuratedApplication.java:143)
+	at io.quarkus.bootstrap.app.CuratedApplication.runInAugmentClassLoader(CuratedApplication.java:98)
+	at io.quarkus.bootstrap.IDELauncherImpl.launch(IDELauncherImpl.java:93)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at io.quarkus.launcher.QuarkusLauncher.launch(QuarkusLauncher.java:56)
+	at io.quarkus.runtime.Quarkus.launchFromIDE(Quarkus.java:121)
+	at io.quarkus.runtime.Quarkus.run(Quarkus.java:95)
+	at io.quarkus.runtime.Quarkus.run(Quarkus.java:51)
+	at com.telcobright.oltp.server.SimplePayloadTestServer.main(SimplePayloadTestServer.java:32)
+	at org.codehaus.mojo.exec.ExecJavaMojo.doMain(ExecJavaMojo.java:371)
+	at org.codehaus.mojo.exec.ExecJavaMojo.doExec(ExecJavaMojo.java:360)
+	at org.codehaus.mojo.exec.ExecJavaMojo.lambda$execute$0(ExecJavaMojo.java:280)
+	at java.base/java.lang.Thread.run(Thread.java:1583)

@@ -10,6 +10,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import jakarta.inject.Inject;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -24,6 +26,8 @@ import java.util.Map;
 @GrpcService
 public class GrpcServiceGenericCrud extends BatchCrudServiceGrpc.BatchCrudServiceImplBase {
     private static final Logger logger = LoggerFactory.getLogger(GrpcServiceGenericCrud.class);
+    private static final String SERVER_LOG_FILE = "server-received-payloads.log";
+    private static final DateTimeFormatter TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
     
     @Inject
     CacheManager cacheManager;
@@ -40,6 +44,9 @@ public class GrpcServiceGenericCrud extends BatchCrudServiceGrpc.BatchCrudServic
         logger.info("Database: {}", dbName);
         logger.info("Operations count: {}", operations.size());
         logger.info("════════════════════════════════════════════════════════");
+        
+        // Log received payload to file for verification
+        logReceivedPayload(transactionId, dbName, operations);
         
         List<OperationResult> results = new ArrayList<>();
         boolean allSuccess = true;
@@ -413,5 +420,84 @@ public class GrpcServiceGenericCrud extends BatchCrudServiceGrpc.BatchCrudServic
             .setEntityType(entityType)
             .setOperationType(opType)
             .build();
+    }
+    
+    /**
+     * Log received payload to file for verification
+     */
+    private void logReceivedPayload(String transactionId, String dbName, List<BatchOperation> operations) {
+        try {
+            StringBuilder payloadLog = new StringBuilder();
+            payloadLog.append("RECEIVED|");
+            payloadLog.append(TIMESTAMP_FORMAT.format(LocalDateTime.now())).append("|");
+            payloadLog.append(transactionId).append("|");
+            payloadLog.append(dbName).append("|");
+            payloadLog.append(operations.size()).append("|");
+            
+            // Log each operation
+            for (int i = 0; i < operations.size(); i++) {
+                BatchOperation op = operations.get(i);
+                payloadLog.append("OP").append(i + 1).append(":");
+                payloadLog.append(op.getOperationType()).append("|");
+                payloadLog.append(op.getEntityType()).append("|");
+                
+                // Log operation-specific details
+                switch (op.getPayloadCase()) {
+                    case PACKAGE_ACCOUNT:
+                        PackageAccount account = op.getPackageAccount();
+                        payloadLog.append("id=").append(account.getId())
+                                  .append("|name=").append(account.getName())
+                                  .append("|balanceAfter=").append(account.getBalanceAfter());
+                        break;
+                        
+                    case PACKAGE_ACCOUNT_RESERVE:
+                        PackageAccountReserve reserve = op.getPackageAccountReserve();
+                        payloadLog.append("id=").append(reserve.getId())
+                                  .append("|packageAccountId=").append(reserve.getPackageAccountId())
+                                  .append("|reservedAmount=").append(reserve.getReservedAmount());
+                        break;
+                        
+                    case PACKAGE_ACCOUNT_DELTA:
+                        PackageAccountDelta accountDelta = op.getPackageAccountDelta();
+                        payloadLog.append("accountId=").append(accountDelta.getAccountId())
+                                  .append("|amount=").append(accountDelta.getAmount());
+                        break;
+                        
+                    case PACKAGE_ACCOUNT_RESERVE_DELTA:
+                        com.telcobright.oltp.grpc.batch.PackageAccountReserveDelta reserveDelta = op.getPackageAccountReserveDelta();
+                        payloadLog.append("reserveId=").append(reserveDelta.getReserveId())
+                                  .append("|amount=").append(reserveDelta.getAmount());
+                        break;
+                        
+                    case PACKAGE_ACCOUNT_DELETE_DELTA:
+                        PackageAccountDeleteDelta accountDelete = op.getPackageAccountDeleteDelta();
+                        payloadLog.append("accountId=").append(accountDelete.getAccountId());
+                        break;
+                        
+                    case PACKAGE_ACCOUNT_RESERVE_DELETE_DELTA:
+                        PackageAccountReserveDeleteDelta reserveDelete = op.getPackageAccountReserveDeleteDelta();
+                        payloadLog.append("reserveId=").append(reserveDelete.getReserveId());
+                        break;
+                        
+                    default:
+                        payloadLog.append("unknown_payload");
+                }
+                
+                if (i < operations.size() - 1) {
+                    payloadLog.append("|");
+                }
+            }
+            
+            // Write to file
+            try (FileWriter writer = new FileWriter(SERVER_LOG_FILE, true)) {
+                writer.write(payloadLog.toString() + "\n");
+                writer.flush();
+            }
+            
+            logger.debug("📝 Payload logged to file: {}", payloadLog.toString());
+            
+        } catch (IOException e) {
+            logger.error("❌ Failed to log payload to file: ", e);
+        }
     }
 }

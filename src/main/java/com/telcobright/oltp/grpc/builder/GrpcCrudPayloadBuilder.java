@@ -441,4 +441,75 @@ public class GrpcCrudPayloadBuilder {
         this.transactionId = "TXN_" + UUID.randomUUID().toString();
         return this;
     }
+    
+    // ==================== ENTITY-BASED METHODS ====================
+    
+    /**
+     * Add a PackageAccountDelta operation (UPDATE_DELTA)
+     * @param delta Proto message for PackageAccountDelta
+     * @return This builder
+     */
+    public GrpcCrudPayloadBuilder addPackageAccountDelta(PackageAccountDelta delta) {
+        operations.add(BatchOperation.newBuilder()
+            .setOperationType(OperationType.UPDATE_DELTA)
+            .setEntityType(EntityType.PACKAGE_ACCOUNT)
+            .setPackageAccountDelta(delta)
+            .build());
+        
+        logger.debug("Added UPDATE_DELTA PackageAccount: AccountID={}", delta.getAccountId());
+        return this;
+    }
+    
+    /**
+     * Add a PackageAccountReserve operation (INSERT)
+     * @param reserve Proto message for PackageAccountReserve
+     * @return This builder
+     */
+    public GrpcCrudPayloadBuilder addPackageAccountReserve(com.telcobright.oltp.grpc.batch.PackageAccountReserve reserve) {
+        operations.add(BatchOperation.newBuilder()
+            .setOperationType(OperationType.INSERT)
+            .setEntityType(EntityType.PACKAGE_ACCOUNT_RESERVE)
+            .setPackageAccountReserve(reserve)
+            .build());
+        
+        logger.debug("Added INSERT PackageAccountReserve: ID={}", reserve.getId());
+        return this;
+    }
+    
+    /**
+     * Add a PackageAccountReserveDelta operation (UPDATE_DELTA)
+     * @param reserveDelta Proto message for PackageAccountReserveDelta
+     * @return This builder
+     */
+    public GrpcCrudPayloadBuilder addPackageAccountReserveDelta(com.telcobright.oltp.grpc.batch.PackageAccountReserveDelta reserveDelta) {
+        operations.add(BatchOperation.newBuilder()
+            .setOperationType(OperationType.UPDATE_DELTA)
+            .setEntityType(EntityType.PACKAGE_ACCOUNT_RESERVE)
+            .setPackageAccountReserveDelta(reserveDelta)
+            .build());
+        
+        logger.debug("Added UPDATE_DELTA PackageAccountReserve: ReserveID={}", reserveDelta.getReserveId());
+        return this;
+    }
+    
+    /**
+     * Add a PackageAccountReserve delete operation (DELETE_DELTA)
+     * @param reserveId Reserve ID to delete
+     * @return This builder
+     */
+    public GrpcCrudPayloadBuilder addPackageAccountReserveDelete(Long reserveId) {
+        PackageAccountReserveDeleteDelta deleteDelta = PackageAccountReserveDeleteDelta.newBuilder()
+            .setDbName(dbName)
+            .setReserveId(reserveId.intValue())
+            .build();
+        
+        operations.add(BatchOperation.newBuilder()
+            .setOperationType(OperationType.DELETE_DELTA)
+            .setEntityType(EntityType.PACKAGE_ACCOUNT_RESERVE)
+            .setPackageAccountReserveDeleteDelta(deleteDelta)
+            .build());
+        
+        logger.debug("Added DELETE_DELTA PackageAccountReserve: ReserveID={}", reserveId);
+        return this;
+    }
 }

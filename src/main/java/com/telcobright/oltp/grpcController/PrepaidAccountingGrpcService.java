@@ -22,7 +22,7 @@ import java.util.Map;
  * Simplified gRPC service using the new generic cache system
  */
 @Blocking
-@GrpcService
+// @GrpcService  // Disabled temporarily for SimplePayloadTestServer
 public class PrepaidAccountingGrpcService implements PrepaidAccounting {
     private static final Logger logger = LoggerFactory.getLogger(PrepaidAccountingGrpcService.class);
     
