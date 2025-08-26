@@ -1,5 +1,8 @@
 package com.telcobright.core.wal;
 
+import lombok.Getter;
+import lombok.Setter;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -7,13 +10,18 @@ import java.util.Map;
  * Generic WAL (Write-Ahead Log) entry that can represent any database operation.
  * This is the core data structure for all WAL operations.
  */
+@Setter
+@Getter
 public class WALEntry {
+    // Getters and setters
     private String dbName;
     private String tableName;
     private OperationType operationType;
     private Map<String, Object> data;
     private Long timestamp;
-    private String transactionId;
+    // transactionId removed - now managed at WALEntryBatch level
+    @Deprecated
+    private transient String transactionId; // Kept for backward compatibility, not serialized
     
     public enum OperationType {
         INSERT,
@@ -82,6 +90,10 @@ public class WALEntry {
             return this;
         }
         
+        /**
+         * @deprecated Use WALEntryBatch.builder().transactionId() instead
+         */
+        @Deprecated
         public Builder withTransactionId(String transactionId) {
             entry.transactionId = transactionId;
             return this;
@@ -91,40 +103,7 @@ public class WALEntry {
             return entry;
         }
     }
-    
-    // Getters and setters
-    public String getDbName() {
-        return dbName;
-    }
-    
-    public void setDbName(String dbName) {
-        this.dbName = dbName;
-    }
-    
-    public String getTableName() {
-        return tableName;
-    }
-    
-    public void setTableName(String tableName) {
-        this.tableName = tableName;
-    }
-    
-    public OperationType getOperationType() {
-        return operationType;
-    }
-    
-    public void setOperationType(OperationType operationType) {
-        this.operationType = operationType;
-    }
-    
-    public Map<String, Object> getData() {
-        return data;
-    }
-    
-    public void setData(Map<String, Object> data) {
-        this.data = data;
-    }
-    
+
     public Object get(String key) {
         return data.get(key);
     }
@@ -132,23 +111,7 @@ public class WALEntry {
     public void put(String key, Object value) {
         data.put(key, value);
     }
-    
-    public Long getTimestamp() {
-        return timestamp;
-    }
-    
-    public void setTimestamp(Long timestamp) {
-        this.timestamp = timestamp;
-    }
-    
-    public String getTransactionId() {
-        return transactionId;
-    }
-    
-    public void setTransactionId(String transactionId) {
-        this.transactionId = transactionId;
-    }
-    
+
     public String getFullTableName() {
         return dbName + "." + tableName;
     }

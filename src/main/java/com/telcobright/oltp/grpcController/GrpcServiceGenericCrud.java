@@ -4,6 +4,9 @@ import com.telcobright.oltp.grpc.batch.*;
 import com.telcobright.oltp.dbCache.CacheManager;
 import com.telcobright.oltp.entity.PackageAccDelta;
 import com.telcobright.oltp.entity.PackageAccountReserveDelta;
+import com.telcobright.core.wal.WALEntry;
+import com.telcobright.core.wal.WALEntryBatch;
+import com.telcobright.core.wal.WALWriter;
 import io.grpc.stub.StreamObserver;
 import io.quarkus.grpc.GrpcService;
 import org.slf4j.Logger;
@@ -23,7 +26,7 @@ import java.util.Map;
 /**
  * Generic gRPC service that extracts deltas/entities and applies them to the database cache
  */
-@GrpcService
+// @GrpcService // Disabled in favor of WALBatchGrpcService
 public class GrpcServiceGenericCrud extends BatchCrudServiceGrpc.BatchCrudServiceImplBase {
     private static final Logger logger = LoggerFactory.getLogger(GrpcServiceGenericCrud.class);
     private static final String SERVER_LOG_FILE = "server-received-payloads.log";
@@ -45,8 +48,14 @@ public class GrpcServiceGenericCrud extends BatchCrudServiceGrpc.BatchCrudServic
         logger.info("Operations count: {}", operations.size());
         logger.info("════════════════════════════════════════════════════════");
         
+        // Convert operations to WALEntryBatch for WAL processing
+        WALEntryBatch walBatch = convertOperationsToWALEntryBatch(operations, transactionId, dbName);
+        
         // Log received payload to file for verification
         logReceivedPayload(transactionId, dbName, operations);
+        
+        // Log WALEntryBatch details for verification
+        logWALEntryBatch(walBatch);
         
         List<OperationResult> results = new ArrayList<>();
         boolean allSuccess = true;
@@ -423,6 +432,139 @@ public class GrpcServiceGenericCrud extends BatchCrudServiceGrpc.BatchCrudServic
     }
     
     /**
+     * Convert BatchOperations to WALEntryBatch for WAL processing
+     */
+    private WALEntryBatch convertOperationsToWALEntryBatch(List<BatchOperation> operations, String transactionId, String dbName) {
+        List<WALEntry> walEntries = new ArrayList<>();
+        
+        for (BatchOperation operation : operations) {
+            WALEntry entry = convertOperationToWALEntry(operation, dbName);
+            if (entry != null) {
+                walEntries.add(entry);
+            }
+        }
+        
+        logger.info("Converted {} operations to {} WALEntries in batch", operations.size(), walEntries.size());
+        return WALEntryBatch.builder()
+            .transactionId(transactionId)
+            .entries(walEntries)
+            .build();
+    }
+    
+    /**
+     * Convert a single BatchOperation to WALEntry
+     */
+    private WALEntry convertOperationToWALEntry(BatchOperation operation, String dbName) {
+        WALEntry.Builder builder = WALEntry.builder()
+            .dbName(dbName);
+            // Transaction ID managed at WALEntryBatch level
+        
+        switch (operation.getEntityType()) {
+            case PACKAGE_ACCOUNT:
+                return convertPackageAccountOperationToWAL(operation, builder);
+            case PACKAGE_ACCOUNT_RESERVE:
+                return convertPackageAccountReserveOperationToWAL(operation, builder);
+            default:
+                logger.warn("Unsupported entity type for WAL conversion: {}", operation.getEntityType());
+                return null;
+        }
+    }
+    
+    /**
+     * Convert PackageAccount operations to WALEntry
+     */
+    private WALEntry convertPackageAccountOperationToWAL(BatchOperation operation, WALEntry.Builder builder) {
+        builder.tableName("packageaccount");
+        
+        switch (operation.getOperationType()) {
+            case UPDATE_DELTA:
+                PackageAccountDelta delta = operation.getPackageAccountDelta();
+                builder.operationType(WALEntry.OperationType.UPDATE)
+                    .withData("accountId", (long) delta.getAccountId())
+                    .withData("amount", new BigDecimal(delta.getAmount()));
+                break;
+            case INSERT:
+                PackageAccount account = operation.getPackageAccount();
+                builder.operationType(WALEntry.OperationType.INSERT)
+                    .withData("id", account.getId())
+                    .withData("packagePurchaseId", account.getPackagePurchaseId())
+                    .withData("name", account.getName())
+                    .withData("lastAmount", new BigDecimal(account.getLastAmount()))
+                    .withData("balanceBefore", new BigDecimal(account.getBalanceBefore()))
+                    .withData("balanceAfter", new BigDecimal(account.getBalanceAfter()))
+                    .withData("uom", account.getUom())
+                    .withData("isSelected", account.getIsSelected());
+                break;
+            case DELETE_DELTA:
+                PackageAccountDeleteDelta deleteDelta = operation.getPackageAccountDeleteDelta();
+                builder.operationType(WALEntry.OperationType.DELETE)
+                    .withData("accountId", (long) deleteDelta.getAccountId());
+                break;
+            default:
+                logger.warn("Unsupported operation type for PackageAccount WAL: {}", operation.getOperationType());
+                return null;
+        }
+        
+        return builder.build();
+    }
+    
+    /**
+     * Convert PackageAccountReserve operations to WALEntry
+     */
+    private WALEntry convertPackageAccountReserveOperationToWAL(BatchOperation operation, WALEntry.Builder builder) {
+        builder.tableName("packageaccountreserve");
+        
+        switch (operation.getOperationType()) {
+            case INSERT:
+                PackageAccountReserve reserve = operation.getPackageAccountReserve();
+                builder.operationType(WALEntry.OperationType.INSERT)
+                    .withData("id", reserve.getId())
+                    .withData("packageAccountId", reserve.getPackageAccountId())
+                    .withData("sessionId", reserve.getSessionId())
+                    .withData("reservedAmount", new BigDecimal(reserve.getReservedAmount()))
+                    .withData("currentReserve", new BigDecimal(reserve.getCurrentReserve()))
+                    .withData("status", reserve.getStatus());
+                if (!reserve.getReservedAt().isEmpty()) {
+                    builder.withData("reservedAt", reserve.getReservedAt());
+                }
+                if (!reserve.getReleasedAt().isEmpty()) {
+                    builder.withData("releasedAt", reserve.getReleasedAt());
+                }
+                break;
+            case UPDATE_DELTA:
+                com.telcobright.oltp.grpc.batch.PackageAccountReserveDelta reserveDelta = operation.getPackageAccountReserveDelta();
+                builder.operationType(WALEntry.OperationType.UPDATE)
+                    .withData("reserveId", (long) reserveDelta.getReserveId())
+                    .withData("amount", new BigDecimal(reserveDelta.getAmount()))
+                    .withData("sessionId", reserveDelta.getSessionId());
+                break;
+            case DELETE_DELTA:
+                PackageAccountReserveDeleteDelta deleteReserveDelta = operation.getPackageAccountReserveDeleteDelta();
+                builder.operationType(WALEntry.OperationType.DELETE)
+                    .withData("reserveId", (long) deleteReserveDelta.getReserveId());
+                break;
+            default:
+                logger.warn("Unsupported operation type for PackageAccountReserve WAL: {}", operation.getOperationType());
+                return null;
+        }
+        
+        return builder.build();
+    }
+    
+    /**
+     * Log WALEntryBatch details for verification
+     */
+    private void logWALEntryBatch(WALEntryBatch walBatch) {
+        logger.info("WALEntryBatch Details: {}", walBatch.toString());
+        for (int i = 0; i < walBatch.size(); i++) {
+            WALEntry entry = walBatch.get(i);
+            logger.info("  WALEntry[{}]: db={}, table={}, op={}", 
+                i, entry.getDbName(), entry.getTableName(), entry.getOperationType());
+            logger.info("  WALEntry[{}] Data: {}", i, entry.getData());
+        }
+    }
+    
+    /**
      * Log received payload to file for verification
      */
     private void logReceivedPayload(String transactionId, String dbName, List<BatchOperation> operations) {
@@ -434,12 +576,37 @@ public class GrpcServiceGenericCrud extends BatchCrudServiceGrpc.BatchCrudServic
             payloadLog.append(dbName).append("|");
             payloadLog.append(operations.size()).append("|");
             
-            // Log each operation
+            // Log each operation using WAL-like format
             for (int i = 0; i < operations.size(); i++) {
                 BatchOperation op = operations.get(i);
                 payloadLog.append("OP").append(i + 1).append(":");
-                payloadLog.append(op.getOperationType()).append("|");
-                payloadLog.append(op.getEntityType()).append("|");
+                
+                // Map operation types to WAL types for consistency
+                switch (op.getOperationType()) {
+                    case UPDATE_DELTA:
+                        payloadLog.append("UPDATE|");
+                        break;
+                    case INSERT:
+                        payloadLog.append("INSERT|");
+                        break;
+                    case DELETE_DELTA:
+                        payloadLog.append("DELETE|");
+                        break;
+                    default:
+                        payloadLog.append(op.getOperationType().name()).append("|");
+                }
+                
+                // Use WAL table names for consistency
+                switch (op.getEntityType()) {
+                    case PACKAGE_ACCOUNT:
+                        payloadLog.append("packageaccount|");
+                        break;
+                    case PACKAGE_ACCOUNT_RESERVE:
+                        payloadLog.append("packageaccountreserve|");
+                        break;
+                    default:
+                        payloadLog.append(op.getEntityType().name()).append("|");
+                }
                 
                 // Log operation-specific details
                 switch (op.getPayloadCase()) {

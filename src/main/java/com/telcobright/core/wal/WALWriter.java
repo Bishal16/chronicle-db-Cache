@@ -10,8 +10,8 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * WAL writer that always writes entries as batches for transactional consistency.
- * Even single entries are written as a batch of size 1.
+ * WAL writer that writes WALEntryBatch for transactional consistency.
+ * Transaction ID is managed at the batch level, eliminating duplication.
  */
 public class WALWriter {
     private static final Logger logger = LoggerFactory.getLogger(WALWriter.class);
@@ -22,32 +22,31 @@ public class WALWriter {
     }
     
     /**
-     * Write WAL entries as a batch transaction.
-     * This is the ONLY write method - all writes are batches for consistency.
+     * Write WALEntryBatch as a transaction.
+     * This is the PRIMARY write method - uses WALEntryBatch for transaction management.
      * 
-     * @param entries The WAL entries to write (can be a single entry)
+     * @param batch The WALEntryBatch to write
      * @return The index where the batch was written
      */
-    public long write(List<WALEntry> entries) {
-        if (entries == null || entries.isEmpty()) {
-            logger.warn("Attempted to write empty batch to WAL");
+    public long write(WALEntryBatch batch) {
+        if (batch == null || batch.isEmpty()) {
+            logger.warn("Attempted to write empty WALEntryBatch to WAL");
             return -1;
         }
         
-        // Generate transaction ID if not present
-        String transactionId = null;
-        if (!entries.isEmpty() && entries.get(0).getTransactionId() != null) {
-            transactionId = entries.get(0).getTransactionId();
-        } else {
+        String transactionId = batch.getTransactionId();
+        if (transactionId == null) {
             transactionId = "TXN_" + System.currentTimeMillis() + "_" + UUID.randomUUID();
+            batch.setTransactionId(transactionId);
         }
         
         final String txId = transactionId;
+        final List<WALEntry> entries = batch.getEntries();
         
         appender.writeDocument(w -> {
             w.write("transactionId").text(txId);
             w.write("batchSize").int32(entries.size());
-            w.write("timestamp").int64(System.currentTimeMillis());
+            w.write("timestamp").int64(batch.getTimestamp() != null ? batch.getTimestamp() : System.currentTimeMillis());
             
             // Write each entry in the batch
             for (int i = 0; i < entries.size(); i++) {
@@ -59,21 +58,54 @@ public class WALWriter {
         long index = appender.lastIndexAppended();
         
         if (entries.size() == 1) {
-            logger.debug("Wrote single entry as batch at index: {} for {}.{}, txId: {}", 
+            logger.debug("Wrote single entry batch at index: {} for {}.{}, txId: {}", 
                 index, entries.get(0).getDbName(), entries.get(0).getTableName(), txId);
         } else {
-            logger.debug("Wrote batch of {} entries at index: {}, txId: {}", 
-                entries.size(), index, txId);
+            logger.debug("Wrote batch of {} entries at index: {}, txId: {}, databases: {}", 
+                entries.size(), index, txId, batch.getDatabaseNames());
         }
         
         return index;
     }
     
     /**
+     * Write WAL entries as a batch transaction (Legacy support).
+     * Creates a WALEntryBatch internally for backward compatibility.
+     * 
+     * @param entries The WAL entries to write (can be a single entry)
+     * @return The index where the batch was written
+     */
+    public long write(List<WALEntry> entries) {
+        if (entries == null || entries.isEmpty()) {
+            logger.warn("Attempted to write empty batch to WAL");
+            return -1;
+        }
+        
+        // Create WALEntryBatch from List<WALEntry>
+        WALEntryBatch batch = WALEntryBatch.withEntries(entries);
+        return write(batch);
+    }
+    
+    /**
      * Convenience method to write a single entry as a batch of size 1
      */
     public long write(WALEntry entry) {
-        return write(List.of(entry));
+        WALEntryBatch batch = WALEntryBatch.builder()
+            .generateTransactionId()
+            .addEntry(entry)
+            .build();
+        return write(batch);
+    }
+    
+    /**
+     * Write a single entry with a specific transaction ID
+     */
+    public long write(String transactionId, WALEntry entry) {
+        WALEntryBatch batch = WALEntryBatch.builder()
+            .transactionId(transactionId)
+            .addEntry(entry)
+            .build();
+        return write(batch);
     }
     
     /**

@@ -1,16 +1,21 @@
 package com.telcobright.oltp.grpc.builder;
 
 import com.telcobright.oltp.grpc.batch.*;
+import com.telcobright.core.wal.WALEntry;
+import com.telcobright.core.wal.WALEntryBatch;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.StatusRuntimeException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -440,6 +445,138 @@ public class GrpcCrudPayloadBuilder {
     public GrpcCrudPayloadBuilder newTransactionId() {
         this.transactionId = "TXN_" + UUID.randomUUID().toString();
         return this;
+    }
+    
+    // ==================== WAL ENTRY GENERATION ====================
+    
+    /**
+     * Generate WALEntryBatch from the current operations
+     * @return WALEntryBatch for WAL processing with transaction ID at batch level
+     */
+    public WALEntryBatch generateWALEntryBatch() {
+        List<WALEntry> entries = new ArrayList<>();
+        
+        for (BatchOperation operation : operations) {
+            WALEntry entry = convertOperationToWALEntry(operation);
+            if (entry != null) {
+                entries.add(entry);
+            }
+        }
+        
+        return WALEntryBatch.builder()
+            .transactionId(transactionId)
+            .entries(entries)
+            .build();
+    }
+    
+    /**
+     * Generate List<WALEntry> from the current operations (Legacy support)
+     * @return List of WALEntry objects for WAL processing
+     * @deprecated Use generateWALEntryBatch() instead for better transaction management
+     */
+    @Deprecated
+    public List<WALEntry> generateWALEntries() {
+        return generateWALEntryBatch().getEntries();
+    }
+    
+    /**
+     * Convert a BatchOperation to a WALEntry
+     */
+    private WALEntry convertOperationToWALEntry(BatchOperation operation) {
+        WALEntry.Builder builder = WALEntry.builder()
+            .dbName(dbName);
+            // Transaction ID no longer set on individual entries
+        
+        switch (operation.getEntityType()) {
+            case PACKAGE_ACCOUNT:
+                return convertPackageAccountOperation(operation, builder);
+            case PACKAGE_ACCOUNT_RESERVE:
+                return convertPackageAccountReserveOperation(operation, builder);
+            default:
+                logger.warn("Unsupported entity type: {}", operation.getEntityType());
+                return null;
+        }
+    }
+    
+    /**
+     * Convert PackageAccount operations to WALEntry
+     */
+    private WALEntry convertPackageAccountOperation(BatchOperation operation, WALEntry.Builder builder) {
+        builder.tableName("packageaccount");
+        
+        switch (operation.getOperationType()) {
+            case UPDATE_DELTA:
+                PackageAccountDelta delta = operation.getPackageAccountDelta();
+                builder.operationType(WALEntry.OperationType.UPDATE)
+                    .withData("accountId", (long) delta.getAccountId())
+                    .withData("amount", new BigDecimal(delta.getAmount()));
+                break;
+            case INSERT:
+                PackageAccount account = operation.getPackageAccount();
+                builder.operationType(WALEntry.OperationType.INSERT)
+                    .withData("id", account.getId())
+                    .withData("packagePurchaseId", account.getPackagePurchaseId())
+                    .withData("name", account.getName())
+                    .withData("lastAmount", new BigDecimal(account.getLastAmount()))
+                    .withData("balanceBefore", new BigDecimal(account.getBalanceBefore()))
+                    .withData("balanceAfter", new BigDecimal(account.getBalanceAfter()))
+                    .withData("uom", account.getUom())
+                    .withData("isSelected", account.getIsSelected());
+                break;
+            case DELETE_DELTA:
+                PackageAccountDeleteDelta deleteDelta = operation.getPackageAccountDeleteDelta();
+                builder.operationType(WALEntry.OperationType.DELETE)
+                    .withData("accountId", (long) deleteDelta.getAccountId());
+                break;
+            default:
+                logger.warn("Unsupported operation type for PackageAccount: {}", operation.getOperationType());
+                return null;
+        }
+        
+        return builder.build();
+    }
+    
+    /**
+     * Convert PackageAccountReserve operations to WALEntry
+     */
+    private WALEntry convertPackageAccountReserveOperation(BatchOperation operation, WALEntry.Builder builder) {
+        builder.tableName("packageaccountreserve");
+        
+        switch (operation.getOperationType()) {
+            case INSERT:
+                PackageAccountReserve reserve = operation.getPackageAccountReserve();
+                builder.operationType(WALEntry.OperationType.INSERT)
+                    .withData("id", reserve.getId())
+                    .withData("packageAccountId", reserve.getPackageAccountId())
+                    .withData("sessionId", reserve.getSessionId())
+                    .withData("reservedAmount", new BigDecimal(reserve.getReservedAmount()))
+                    .withData("currentReserve", new BigDecimal(reserve.getCurrentReserve()))
+                    .withData("status", reserve.getStatus());
+                if (!reserve.getReservedAt().isEmpty()) {
+                    builder.withData("reservedAt", reserve.getReservedAt());
+                }
+                if (!reserve.getReleasedAt().isEmpty()) {
+                    builder.withData("releasedAt", reserve.getReleasedAt());
+                }
+                break;
+            case UPDATE_DELTA:
+                PackageAccountReserveDelta reserveDelta = operation.getPackageAccountReserveDelta();
+                builder.operationType(WALEntry.OperationType.UPDATE)
+                    .withData("reserveId", (long) reserveDelta.getReserveId())
+                    .withData("amount", new BigDecimal(reserveDelta.getAmount()))
+                    .withData("sessionId", reserveDelta.getSessionId());
+                break;
+            case DELETE_DELTA:
+                PackageAccountReserveDeleteDelta deleteReserveDelta = operation.getPackageAccountReserveDeleteDelta();
+                builder.operationType(WALEntry.OperationType.DELETE)
+                    .withData("reserveId", (long) deleteReserveDelta.getReserveId());
+                break;
+            default:
+                logger.warn("Unsupported operation type for PackageAccountReserve: {}", operation.getOperationType());
+                return null;
+        }
+        
+        return builder.build();
     }
     
     // ==================== ENTITY-BASED METHODS ====================

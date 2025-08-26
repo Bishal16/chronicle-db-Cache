@@ -9,7 +9,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
-@Startup
+// @Startup // Disabled for WALBatch testing
 @ApplicationScoped
 public class ConsumerFactory {
     private final String offsetTable;

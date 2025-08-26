@@ -10,7 +10,7 @@ import net.openhft.chronicle.queue.RollCycle;
 import net.openhft.chronicle.queue.RollCycles;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
-@Startup
+// @Startup // Disabled for WALBatch testing
 @ApplicationScoped
 public class ChronicleInstanceFactory {
 

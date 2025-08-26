@@ -7,6 +7,8 @@ import com.telcobright.oltp.entity.PackageAccountReserve;
 import com.telcobright.oltp.entity.PackageAccDelta;
 import com.telcobright.oltp.entity.PackageAccountReserveDelta;
 import com.telcobright.oltp.mapper.EntityProtoMapper;
+import com.telcobright.core.wal.WALEntry;
+import com.telcobright.core.wal.WALEntryBatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -99,12 +101,14 @@ public class PayloadTestClient {
         reserve.setSessionId("SESSION_CASE1_" + UUID.randomUUID());
         reserve.setStatus("RESERVED");
         
-        // Log what we're about to send
+        // Log what we're about to send (including WAL format)
         String sentPayload = String.format(
-            "SENT|%s|%s|res_1|2|" +
-            "OP1:UPDATE_DELTA|PACKAGE_ACCOUNT|accountId=1001|amount=75.50|" +
-            "OP2:INSERT|PACKAGE_ACCOUNT_RESERVE|id=4001|packageAccountId=1001|reservedAmount=30.00",
-            TIMESTAMP_FORMAT.format(LocalDateTime.now()), transactionId
+            "SENT|%s|%s|telcobright|2|" +
+            "OP1:UPDATE_DELTA|packageaccount|accountId=%d|amount=%s|" +
+            "OP2:INSERT|packageaccountreserve|id=%d|packageAccountId=%d|reservedAmount=%s",
+            TIMESTAMP_FORMAT.format(LocalDateTime.now()), transactionId,
+            accountDelta.accountId, accountDelta.amount,
+            reserve.getId(), reserve.getPackageAccountId(), reserve.getReservedAmount()
         );
         logClientPayload(sentPayload);
         sentPayloads.add(sentPayload);
@@ -139,12 +143,14 @@ public class PayloadTestClient {
         PackageAccountReserveDelta reserveDelta = new PackageAccountReserveDelta("res_1", 4001L, 
             new BigDecimal("-15.00"), "SESSION_CASE2_" + UUID.randomUUID());
         
-        // Log what we're about to send
+        // Log what we're about to send (including WAL format)
         String sentPayload = String.format(
             "SENT|%s|%s|res_1|2|" +
-            "OP1:UPDATE_DELTA|PACKAGE_ACCOUNT|accountId=2001|amount=-25.75|" +
-            "OP2:UPDATE_DELTA|PACKAGE_ACCOUNT_RESERVE|reserveId=4001|amount=-15.00",
-            TIMESTAMP_FORMAT.format(LocalDateTime.now()), transactionId
+            "OP1:UPDATE_DELTA|packageaccount|accountId=%d|amount=%s|" +
+            "OP2:UPDATE_DELTA|packageaccountreserve|reserveId=%d|amount=%s",
+            TIMESTAMP_FORMAT.format(LocalDateTime.now()), transactionId,
+            accountDelta.accountId, accountDelta.amount,
+            reserveDelta.reserveId, reserveDelta.amount
         );
         logClientPayload(sentPayload);
         sentPayloads.add(sentPayload);
@@ -173,21 +179,35 @@ public class PayloadTestClient {
         logger.info("│  Transaction: {}                    │", transactionId);
         logger.info("└────────────────────────────────────────────────────────┘");
         
-        // Log what we're about to send
+        // Log what we're about to send (including WAL format)
         String sentPayload = String.format(
             "SENT|%s|%s|res_1|1|" +
-            "OP1:DELETE_DELTA|PACKAGE_ACCOUNT_RESERVE|reserveId=5555",
+            "OP1:DELETE|packageaccountreserve|reserveId=5555",
             TIMESTAMP_FORMAT.format(LocalDateTime.now()), transactionId
         );
         logClientPayload(sentPayload);
         sentPayloads.add(sentPayload);
         
-        // Send request
-        BatchResponse response = GrpcCrudPayloadBuilder.create(host, port)
+        // Generate WALEntries using GrpcCrudPayloadBuilder
+        GrpcCrudPayloadBuilder builder = GrpcCrudPayloadBuilder.create(host, port)
             .withDatabase("res_1")
             .withTransactionId(transactionId)
-            .deletePackageAccountReserve(5555)
-            .submit();
+            .deletePackageAccountReserve(5555);
+        
+        // Generate WALEntryBatch for WAL processing
+        WALEntryBatch walBatch = builder.generateWALEntryBatch();
+        logger.info("Generated WALEntryBatch with {} entries for transaction {}", walBatch.size(), transactionId);
+        
+        // Log WALEntryBatch details
+        logger.info("WALEntryBatch: {}", walBatch.toString());
+        for (int i = 0; i < walBatch.size(); i++) {
+            WALEntry entry = walBatch.get(i);
+            logger.info("WALEntry[{}]: db={}, table={}, op={}, data={}", 
+                i, entry.getDbName(), entry.getTableName(), entry.getOperationType(), entry.getData());
+        }
+        
+        // Submit original gRPC request
+        BatchResponse response = builder.submit();
         
         logger.info("✅ Case 3 Response: Success={}, Operations={}", 
             response.getSuccess(), response.getOperationsProcessed());

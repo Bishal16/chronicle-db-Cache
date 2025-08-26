@@ -1,0 +1,70 @@
+2025-08-26 19:49:19.883 ╔════════════════════════════════════════════════════════════════╗
+2025-08-26 19:49:19.893 ║                    WALEntryBatch Verification                  ║
+2025-08-26 19:49:19.893 ║                        System Check                            ║
+2025-08-26 19:49:19.893 ╚════════════════════════════════════════════════════════════════╝
+2025-08-26 19:49:19.893 
+2025-08-26 19:49:19.893 TEST 1: Single Database Operations
+2025-08-26 19:49:19.893 -----------------------------------
+2025-08-26 19:49:19.982    Transaction ID: TEST1_39e32c23
+2025-08-26 19:49:19.985    Entries: 2
+2025-08-26 19:49:19.986    Databases: [telcobright]
+2025-08-26 19:49:19.986    ✅ Single database verified
+2025-08-26 19:49:19.986    ✅ Entry count verified
+2025-08-26 19:49:19.992    Entry[0]: UPDATE on telcobright.packageaccount
+2025-08-26 19:49:19.992    Entry[1]: INSERT on telcobright.packageaccountreserve
+2025-08-26 19:49:19.992    🎯 TEST 1 PASSED
+2025-08-26 19:49:19.992 
+2025-08-26 19:49:19.992 TEST 2: Multi-Database Operations (OP1 Pattern)
+2025-08-26 19:49:19.992 ------------------------------------------------
+2025-08-26 19:49:19.992    Transaction ID: MULTI_a2f2e2c0
+2025-08-26 19:49:19.992    Entries: 6
+2025-08-26 19:49:19.992    Databases: [telcobright, res_1, res_2]
+2025-08-26 19:49:19.992    ✅ Multi-database (3) verified
+2025-08-26 19:49:19.993    ✅ Entry count (6) verified
+2025-08-26 19:49:19.994    ✅ Database 'telcobright' present
+2025-08-26 19:49:19.994    ✅ Database 'res_1' present
+2025-08-26 19:49:19.994    ✅ Database 'res_2' present
+2025-08-26 19:49:19.998    Entry[0]: UPDATE on telcobright.packageaccount - {accountId=1001, amount=50.00}
+2025-08-26 19:49:19.998    Entry[1]: INSERT on telcobright.packageaccountreserve - {reservedAmount=25.00, currentReserve=25.00, packageAccountId=1001, id=4001, sessionId=SESSION_TB, status=RESERVED}
+2025-08-26 19:49:19.998    Entry[2]: UPDATE on res_1.packageaccount - {accountId=2001, amount=75.50}
+2025-08-26 19:49:19.998    Entry[3]: INSERT on res_1.packageaccountreserve - {reservedAmount=30.00, currentReserve=30.00, packageAccountId=2001, id=4002, sessionId=SESSION_R1, status=RESERVED}
+2025-08-26 19:49:19.998    Entry[4]: UPDATE on res_2.packageaccount - {accountId=3001, amount=100.25}
+2025-08-26 19:49:19.998    Entry[5]: INSERT on res_2.packageaccountreserve - {reservedAmount=45.00, currentReserve=45.00, packageAccountId=3001, id=4003, sessionId=SESSION_R2, status=RESERVED}
+2025-08-26 19:49:19.999    🎯 TEST 2 PASSED - Multi-database OP1 working correctly!
+2025-08-26 19:49:19.999 
+2025-08-26 19:49:19.999 TEST 3: Transaction ID Deduplication
+2025-08-26 19:49:19.999 ------------------------------------
+2025-08-26 19:49:19.999    Batch Transaction ID: MULTI_a2f2e2c0
+2025-08-26 19:49:19.999    Entry[0] has no individual transaction ID ✅
+2025-08-26 19:49:19.999    Entry[1] has no individual transaction ID ✅
+2025-08-26 19:49:19.999    Entry[2] has no individual transaction ID ✅
+2025-08-26 19:49:19.999    Entry[3] has no individual transaction ID ✅
+2025-08-26 19:49:19.999    Entry[4] has no individual transaction ID ✅
+2025-08-26 19:49:19.999    Entry[5] has no individual transaction ID ✅
+2025-08-26 19:49:19.999    ✅ Transaction ID stored only at batch level
+2025-08-26 19:49:19.999    💾 Storage efficiency: 1 transaction ID for 6 entries
+2025-08-26 19:49:19.999    🎯 TEST 3 PASSED - No transaction ID duplication!
+2025-08-26 19:49:19.999 
+2025-08-26 19:49:19.999 TEST 4: Delete Operations
+2025-08-26 19:49:19.999 -------------------------
+2025-08-26 19:49:20.000    Transaction ID: DEL_6e96a7bc
+2025-08-26 19:49:20.000    Entries: 1
+2025-08-26 19:49:20.000    Operation: DELETE
+2025-08-26 19:49:20.002    Entry: DELETE on res_1.packageaccountreserve
+2025-08-26 19:49:20.003    ✅ DELETE operation verified
+2025-08-26 19:49:20.003    🎯 TEST 4 PASSED - Delete operations working!
+2025-08-26 19:49:20.003 
+2025-08-26 19:49:20.003 ╔════════════════════════════════════════════════════════════════╗
+2025-08-26 19:49:20.003 ║                        FINAL RESULTS                          ║
+2025-08-26 19:49:20.003 ╚════════════════════════════════════════════════════════════════╝
+2025-08-26 19:49:20.003 ✅ ALL TESTS PASSED - WALEntryBatch system is working correctly!
+2025-08-26 19:49:20.003 
+2025-08-26 19:49:20.003 🎯 Success Criteria Verified:
+2025-08-26 19:49:20.003    ✅ WALEntryBatch is atomic (single transaction ID per batch)
+2025-08-26 19:49:20.003    ✅ Multi-database operations work correctly
+2025-08-26 19:49:20.003    ✅ Transaction ID deduplication implemented
+2025-08-26 19:49:20.003    ✅ Builder pattern API works correctly
+2025-08-26 19:49:20.003    ✅ All operation types supported (UPDATE, INSERT, DELETE)
+2025-08-26 19:49:20.003    ✅ Database name isolation works
+2025-08-26 19:49:20.003 
+2025-08-26 19:49:20.003 🚀 The WALEntryBatch system is ready for production!

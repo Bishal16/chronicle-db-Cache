@@ -1,0 +1,80 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "com.telcobright.oltp.grpc.wal";
+option java_outer_classname = "WALBatchProto";
+
+package walbatch;
+
+// Service definition for WAL batch operations
+service WALBatchService {
+  // Execute a WALEntryBatch atomically
+  rpc ExecuteWALBatch(WALBatchRequest) returns (WALBatchResponse);
+}
+
+// Request message containing a WALEntryBatch
+message WALBatchRequest {
+  string transaction_id = 1;
+  int64 timestamp = 2;
+  repeated WALEntry entries = 3;
+}
+
+// Individual WAL entry
+message WALEntry {
+  string db_name = 1;
+  string table_name = 2;
+  WALOperationType operation_type = 3;
+  int64 timestamp = 4;
+  map<string, WALValue> data = 5;
+}
+
+// WAL operation types (matching WALEntry.OperationType)
+enum WALOperationType {
+  INSERT = 0;
+  UPDATE = 1;
+  DELETE = 2;
+  UPSERT = 3;
+  BATCH = 4;
+}
+
+// Generic value type for WAL data
+message WALValue {
+  oneof value {
+    string string_value = 1;
+    int64 long_value = 2;
+    int32 int_value = 3;
+    double double_value = 4;
+    bool bool_value = 5;
+    string decimal_value = 6;  // For BigDecimal as string
+  }
+}
+
+// Response for WAL batch operations
+message WALBatchResponse {
+  bool success = 1;
+  string message = 2;
+  string transaction_id = 3;
+  int32 entries_processed = 4;
+  int64 wal_index = 5;  // Chronicle Queue index where batch was written
+  repeated WALEntryResult results = 6;
+  WALErrorDetails error = 7;
+}
+
+// Individual WAL entry result
+message WALEntryResult {
+  int32 entry_index = 1;
+  bool success = 2;
+  string message = 3;
+  string db_name = 4;
+  string table_name = 5;
+  WALOperationType operation_type = 6;
+}
+
+// Error details for WAL operations
+message WALErrorDetails {
+  string code = 1;
+  string message = 2;
+  int32 failed_entry_index = 3;
+  string db_name = 4;
+  string table_name = 5;
+}
