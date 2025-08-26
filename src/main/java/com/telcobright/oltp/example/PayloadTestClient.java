@@ -54,12 +54,12 @@ public class PayloadTestClient {
             // Execute all 3 test cases
             executeTestCase1(host, port);
             Thread.sleep(1000);
-            
-            executeTestCase2(host, port);
-            Thread.sleep(1000);
-            
-            executeTestCase3(host, port);
-            Thread.sleep(2000); // Wait for server to finish processing
+//
+//            executeTestCase2(host, port);
+//            Thread.sleep(1000);
+//
+//            executeTestCase3(host, port);
+//            Thread.sleep(2000); // Wait for server to finish processing
             
             // Verify payloads
             boolean success = verifyPayloads();
@@ -90,11 +90,11 @@ public class PayloadTestClient {
         logger.info("└────────────────────────────────────────────────────────┘");
         
         // 1. Create strongly typed entities using new()
-        PackageAccDelta accountDelta = new PackageAccDelta("res_1", 1001L, new BigDecimal("75.50"));
+        PackageAccDelta accountDelta = new PackageAccDelta("telcobright", 199, new BigDecimal("5.50"));
         
         PackageAccountReserve reserve = new PackageAccountReserve();
         reserve.setId(4001L);
-        reserve.setPackageAccountId(1001L);
+        reserve.setPackageAccountId(199L);
         reserve.setReservedAmount(new BigDecimal("30.00"));
         reserve.setSessionId("SESSION_CASE1_" + UUID.randomUUID());
         reserve.setStatus("RESERVED");
@@ -111,7 +111,7 @@ public class PayloadTestClient {
         
         // 2. Convert entities to proto and send using GrpcCrudPayloadBuilder
         BatchResponse response = GrpcCrudPayloadBuilder.create(host, port)
-            .withDatabase("res_1")
+            .withDatabase("telcobright")
             .withTransactionId(transactionId)
             .addPackageAccountDelta(EntityProtoMapper.toProto(accountDelta))
             .addPackageAccountReserve(EntityProtoMapper.toProto(reserve))
