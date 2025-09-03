@@ -1,0 +1,69 @@
+@startuml
+title Hybrid WAL Architecture Overview
+
+start
+
+:Client Request\nWALEntryBatch;
+
+split
+  rectangle "Fast Path (Primary)" #LightGreen {
+    :HybridProducer;
+    :Write to Chronicle Queue;
+    :Return Offset Immediately;
+    note right
+      No blocking
+      Microsecond latency
+    end note
+  }
+split again
+  rectangle "Async Backup" #LightYellow {
+    :Queue in Memory;
+    :Background Thread;
+    :Serialize to JSON;
+    :Base64 Encode;
+    :Write to MySQL;
+    note right
+      Write-through
+      Best effort
+    end note
+  }
+end split
+
+:Client Gets Response;
+
+fork
+  rectangle "Normal Consumer Path" #LightBlue {
+    :HybridConsumer;
+    :Read from Chronicle;
+    :Process Batch;
+    :Commit Offset to DB;
+  }
+fork again
+  rectangle "Corruption Path" #Orange {
+    :Detect Chronicle Error;
+    :Try Progressive Skip;
+    if (Recovery Failed?) then (yes)
+      :Switch to MySQL;
+      #pink:Log Warnings;
+      :Continue from MySQL;
+    else (no)
+      :Resume Chronicle;
+    endif
+  }
+end fork
+
+rectangle "Offset Management" #LightCyan {
+  :Store in MySQL Table;
+  :Track per Consumer;
+  :Atomic with Data Updates;
+  note right
+    Ensures exactly-once
+    processing semantics
+  end note
+}
+
+:Processing Complete;
+
+stop
+
+@enduml

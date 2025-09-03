@@ -1,0 +1,27 @@
+@startuml Test_Simple
+title Simple Test Diagram
+
+start
+
+:Step 1;
+note right: This is a note
+
+if (Condition?) then (yes)
+  :Do Something;
+else (no)
+  :Do Something Else;
+endif
+
+while (Loop?) is (yes)
+  :Process Item;
+endwhile (no)
+
+#pink:Error Step;
+
+:Final Step
+Multi-line text
+With details;
+
+stop
+
+@enduml

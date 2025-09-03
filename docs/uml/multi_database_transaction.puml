@@ -1,0 +1,36 @@
+@startuml
+title Multi-Database Transaction Flow (OP1 Pattern)
+
+start
+
+:Receive Multi-DB Request;
+
+rectangle "Build WALEntryBatch" #LightBlue {
+  :Create Batch with Single TXN ID;
+  repeat
+    :Add UPDATE PackageAccount;
+    :Add INSERT PackageAccountReserve;
+  repeat while (For Each of 3 DBs)
+  note right: Results in 6 entries
+}
+
+rectangle "Atomic Write" #LightGreen {
+  :Validate Batch (6 entries, 3 DBs);
+  :Write to Chronicle Queue;
+  if (Success?) then (no)
+    :Return Failure;
+    stop
+  endif
+}
+
+rectangle "Update All Caches" #LightYellow {
+  repeat
+    :Get Database Cache;
+    :Apply Operation;
+  repeat while (For Each Entry)
+  :Return Success Response;
+}
+
+stop
+
+@enduml

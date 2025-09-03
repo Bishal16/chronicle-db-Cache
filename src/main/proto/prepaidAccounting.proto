@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 option java_multiple_files = true;
-option java_package = "prepaidaccounting";
+option java_package = "com.telcobright.examples.oltp.grpc.prepaidaccounting";
 option java_outer_classname = "PrepaidAccountingProto";
 
 service PrepaidAccounting {

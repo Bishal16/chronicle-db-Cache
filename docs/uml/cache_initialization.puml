@@ -1,0 +1,45 @@
+@startuml
+title Cache Initialization and Replay Flow
+
+start
+
+rectangle "Initialize Components" #LightBlue {
+  :Initialize DataSource;
+  :Initialize Chronicle Queue;
+  if (Queue Corrupted?) then (yes)
+    :Archive & Create New;
+  endif
+  :Initialize Cache Structure;
+}
+
+rectangle "Load from Database" #LightGreen {
+  :Query Admin DB for Database List;
+  repeat
+    :Connect to Database;
+    :Load All Entities;
+    :Add to Cache;
+  repeat while (More Databases?)
+}
+
+rectangle "WAL Replay" #LightYellow {
+  if (Queue Empty?) then (no)
+    :Create Tailer at Start;
+    repeat
+      if (Read Success?) then (yes)
+        :Apply to Cache;
+      else (no)
+        :Skip Corrupted Entry;
+      endif
+    repeat while (Not at End?)
+  endif
+}
+
+rectangle "Start Services" #LightCyan {
+  :Start Checkpoint Scheduler;
+  :Start Consumer Thread;
+  :Mark Cache Ready;
+}
+
+stop
+
+@enduml

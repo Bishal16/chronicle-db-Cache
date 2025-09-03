@@ -1,0 +1,59 @@
+@startuml
+title Hybrid System Corruption Recovery
+
+start
+
+:Corruption Detected in Chronicle;
+
+rectangle "Detection Phase" #LightBlue {
+  :Count Consecutive Failures;
+  if (Failures > Max Retries?) then (yes)
+    :Mark Chronicle Unhealthy;
+  else (no)
+    :Retry Read;
+    stop
+  endif
+}
+
+rectangle "Recovery Strategy" #LightGreen {
+  :Try Progressive Skip;
+  note right: Skip 1, 10, 100, 1000, 10000
+  
+  if (Found Valid Entry?) then (yes)
+    :Resume from Valid Position;
+    :Log Skipped Entries;
+  else (no)
+    :Switch to MySQL Fallback;
+  endif
+}
+
+if (Using MySQL Fallback?) then (yes)
+  rectangle "Fallback Operations" #Orange {
+    :Read from MySQL Partitions;
+    :Continue Processing;
+    #pink:Generate Warning Logs;
+    
+    repeat
+      :Check Chronicle Health;
+      if (Chronicle Recovered?) then (yes)
+        :Sync Offsets;
+        :Switch Back to Primary;
+      endif
+    repeat while (Still on Fallback?)
+  }
+endif
+
+rectangle "Monitoring & Alerts" #LightYellow {
+  :Update Corruption Metrics;
+  :Record Data Loss;
+  if (Critical Threshold?) then (yes)
+    :Send Alert to Ops;
+    :Log Incident Report;
+  endif
+}
+
+:Resume Normal Operations;
+
+stop
+
+@enduml

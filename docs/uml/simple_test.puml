@@ -1,0 +1,20 @@
+@startuml
+title Simple Test
+
+start
+
+:Step 1;
+
+if (Condition?) then (yes)
+  :Yes Path;
+else (no)
+  :No Path;
+endif
+
+repeat
+  :Loop Action;
+repeat while (Continue?)
+
+stop
+
+@enduml

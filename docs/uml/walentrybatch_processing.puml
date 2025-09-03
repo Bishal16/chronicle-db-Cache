@@ -1,0 +1,48 @@
+@startuml
+title WALEntryBatch Processing Flow
+
+start
+
+:Receive gRPC Request;
+
+rectangle "Validation" #LightBlue {
+  :Parse Proto Message;
+  if (Valid?) then (no)
+    :Return Error;
+    stop
+  endif
+  :Convert to WALEntryBatch;
+  :Ensure Transaction ID;
+  :Validate Entry Count;
+}
+
+rectangle "Entry Processing" #LightGreen {
+  repeat
+    :Validate Entry Fields;
+    :Check Database Access;
+    if (Valid?) then (yes)
+      :Add to Valid List;
+    else (no)
+      :Add to Failed List;
+    endif
+  repeat while (More Entries?)
+}
+
+rectangle "Write & Response" #LightYellow {
+  if (All Valid?) then (yes)
+    :Write to Chronicle Queue;
+    :Update Cache;
+    :Return Success;
+  else (no)
+    if (Partial Allowed?) then (yes)
+      :Process Valid Only;
+      :Return Partial Success;
+    else (no)
+      :Return Failure;
+    endif
+  endif
+}
+
+stop
+
+@enduml

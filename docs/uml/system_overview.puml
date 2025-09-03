@@ -1,0 +1,33 @@
+@startuml
+title Chronicle Queue System Overview
+
+rectangle "Client Layer" #LightBlue {
+  :gRPC Client;
+  :Kafka Consumer;
+  :API Client;
+}
+
+rectangle "Processing Layer" #LightGreen {
+  :WALBatch Builder;
+  :Producer (Writer);
+  :Consumer (Reader);
+}
+
+rectangle "Storage Layer" #LightYellow {
+  :Chronicle Queue (WAL);
+  :In-Memory Cache;
+  :MySQL Databases;
+}
+
+rectangle "Recovery Layer" #Pink {
+  :Corruption Handler;
+  :Checkpoint Manager;
+  :Loss Tracker;
+}
+
+Client --> Processing : Requests
+Processing --> Storage : Read/Write
+Storage --> Recovery : On Error
+Recovery --> Processing : Resume
+
+@enduml

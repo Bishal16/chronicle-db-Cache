@@ -1,0 +1,52 @@
+@startuml
+title Hybrid WAL Producer Workflow
+
+start
+
+:Receive WALEntryBatch;
+
+rectangle "Validation" #LightBlue {
+  if (Batch Valid?) then (no)
+    :Return Error;
+    stop
+  endif
+  :Assign Transaction ID;
+}
+
+rectangle "Primary Write" #LightGreen {
+  :Write to Chronicle Queue;
+  :Get Chronicle Offset;
+  if (Write Failed?) then (yes)
+    :Mark Primary Unhealthy;
+    :Return Error;
+    stop
+  endif
+}
+
+rectangle "Async Fallback" #LightYellow {
+  :Queue for MySQL Write;
+  if (Queue Full?) then (yes)
+    if (Block Mode?) then (yes)
+      :Wait for Space;
+    else (no)
+      :Log Warning\nSkip Fallback;
+    endif
+  endif
+  :Return Chronicle Offset;
+}
+
+rectangle "Background Thread" #Orange {
+  repeat
+    :Poll from Queue;
+    :Serialize to JSON;
+    :Base64 Encode;
+    :Write to MySQL;
+    if (MySQL Error?) then (yes)
+      :Log Error\nIncrement Failures;
+    endif
+  repeat while (Running?)
+}
+
+stop
+
+@enduml

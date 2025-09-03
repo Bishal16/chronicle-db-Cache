@@ -1,0 +1,62 @@
+@startuml
+title Hybrid WAL Consumer Workflow
+
+start
+
+rectangle "Initialize" #LightBlue {
+  :Load Last Offset from DB;
+  :Create Chronicle Consumer;
+  :Create MySQL Consumer;
+  if (Last Offset Exists?) then (yes)
+    :Seek to Last Offset + 1;
+  else (no)
+    :Start from Beginning;
+  endif
+}
+
+repeat
+
+  rectangle "Primary Read" #LightGreen {
+    :Try Read from Chronicle;
+    if (Read Success?) then (yes)
+      :Extract WALEntryBatch;
+    else (no)
+      #pink:Detect Corruption;
+      if (Can Skip?) then (yes)
+        :Progressive Skip\n(1,10,100,1000);
+      else (no)
+        :Switch to Fallback;
+      endif
+    endif
+  }
+  
+  if (Using Fallback?) then (yes)
+    rectangle "Fallback Read" #Orange {
+      :Read from MySQL;
+      :Decode Base64;
+      :Deserialize JSON;
+      #pink:Log Warning\n"Reading from Fallback";
+    }
+  endif
+  
+  rectangle "Process & Commit" #LightYellow {
+    :Begin Transaction;
+    :Execute DB Operations;
+    :Update Offset Table;
+    if (Success?) then (yes)
+      :Commit All;
+    else (no)
+      :Rollback\nRetry;
+    endif
+  }
+  
+repeat while (Running?)
+
+rectangle "Shutdown" #LightGray {
+  :Save Final Offset;
+  :Log Statistics;
+}
+
+stop
+
+@enduml
