@@ -47,3 +47,101 @@ Batch 5: 1 entry
 ✓ Test passed: Single entry batch processing
 === Test Completed ===
 
+
+=== BatchProcessingTest Started at Wed Sep 03 20:22:36 BDT 2025 ===
+
+Test: Batch Processing with Custom Size
+Batch 1: 10 entries
+Batch 2: 10 entries
+Batch 3: 5 entries
+Batch 4: 0 entries (empty)
+✓ Test passed: Custom batch size processing
+=== Test Completed ===
+
+
+=== BatchProcessingTest Started at Wed Sep 03 20:22:36 BDT 2025 ===
+
+Test: Batch Processing with Default Size (100)
+First batch processed: 100 entries
+Database contains: 100 entries
+Second batch processed: 50 entries
+Final database count: 150 entries
+✓ Test passed: Default batch size processing
+=== Test Completed ===
+
+
+=== BatchProcessingTest Started at Wed Sep 03 20:22:36 BDT 2025 ===
+
+Test: Atomic Transaction Rollback
+Expected exception: java.lang.RuntimeException: Null value not allowed
+Database count after rollback: 0
+Successful operations before rollback: 5
+✓ Test passed: Transaction rolled back atomically
+=== Test Completed ===
+
+
+=== BatchProcessingTest Started at Wed Sep 03 20:22:36 BDT 2025 ===
+
+Test: Batch Size of 1 (Single Entry Processing)
+  Processed entry: id=0
+Batch 1: 1 entry
+  Processed entry: id=1
+Batch 2: 1 entry
+  Processed entry: id=2
+Batch 3: 1 entry
+  Processed entry: id=3
+Batch 4: 1 entry
+  Processed entry: id=4
+Batch 5: 1 entry
+✓ Test passed: Single entry batch processing
+=== Test Completed ===
+
+
+=== BatchProcessingTest Started at Wed Sep 03 20:27:37 BDT 2025 ===
+
+Test: Batch Processing with Custom Size
+Batch 1: 10 entries
+Batch 2: 10 entries
+Batch 3: 5 entries
+Batch 4: 0 entries (empty)
+✓ Test passed: Custom batch size processing
+=== Test Completed ===
+
+
+=== BatchProcessingTest Started at Wed Sep 03 20:27:37 BDT 2025 ===
+
+Test: Batch Processing with Default Size (100)
+First batch processed: 100 entries
+Database contains: 100 entries
+Second batch processed: 50 entries
+Final database count: 150 entries
+✓ Test passed: Default batch size processing
+=== Test Completed ===
+
+
+=== BatchProcessingTest Started at Wed Sep 03 20:27:37 BDT 2025 ===
+
+Test: Atomic Transaction Rollback
+Expected exception: java.lang.RuntimeException: Null value not allowed
+Database count after rollback: 0
+Successful operations before rollback: 5
+✓ Test passed: Transaction rolled back atomically
+=== Test Completed ===
+
+
+=== BatchProcessingTest Started at Wed Sep 03 20:27:37 BDT 2025 ===
+
+Test: Batch Size of 1 (Single Entry Processing)
+  Processed entry: id=0
+Batch 1: 1 entry
+  Processed entry: id=1
+Batch 2: 1 entry
+  Processed entry: id=2
+Batch 3: 1 entry
+  Processed entry: id=3
+Batch 4: 1 entry
+  Processed entry: id=4
+Batch 5: 1 entry
+✓ Test passed: Single entry batch processing
+=== Test Completed ===
+
