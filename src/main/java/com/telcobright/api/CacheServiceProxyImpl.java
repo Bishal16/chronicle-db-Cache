@@ -40,7 +40,7 @@ public class CacheServiceProxyImpl implements CacheServiceProxy {
             return CacheOperationResponse.failure("INVALID_BATCH", "Entries cannot be null or empty");
         }
         
-        // Create batch with auto-generated transaction ID
+        // Create batch with auto-generated transaction ID--
         String transactionId = "TXN_" + System.currentTimeMillis() + "_" + UUID.randomUUID();
         WALEntryBatch batch = WALEntryBatch.builder()
             .transactionId(transactionId)
