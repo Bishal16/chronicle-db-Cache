@@ -160,29 +160,9 @@ public class CacheCoreImpl implements CacheCoreAPI {
     }
     
     @Override
-    public CacheOperationResult performCacheOpSingle(WALEntry entry) {
-        // Create single-entry batch
-        String transactionId = "TXN_" + UUID.randomUUID();
-        WALEntryBatch batch = WALEntryBatch.builder()
-            .transactionId(transactionId)
-            .addEntry(entry)
-            .build();
-        
-        return performCacheOpBatch(batch);
-    }
-    
-    @Override
     public CompletableFuture<CacheOperationResult> performCacheOpBatchAsync(WALEntryBatch batch) {
         return CompletableFuture.supplyAsync(
             () -> performCacheOpBatch(batch),
-            asyncExecutor
-        );
-    }
-    
-    @Override
-    public CompletableFuture<CacheOperationResult> performCacheOpSingleAsync(WALEntry entry) {
-        return CompletableFuture.supplyAsync(
-            () -> performCacheOpSingle(entry),
             asyncExecutor
         );
     }

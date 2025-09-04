@@ -62,6 +62,11 @@
             <scope>test</scope>
         </dependency>
         <dependency>
+            <groupId>com.telcobright</groupId>
+            <artifactId>generic-entity-store</artifactId>
+            <version>1.0.0</version>
+        </dependency>
+        <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-scheduler</artifactId>
         </dependency>

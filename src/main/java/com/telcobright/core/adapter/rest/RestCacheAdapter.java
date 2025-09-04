@@ -91,8 +91,8 @@ public class RestCacheAdapter {
                     entry.getTableName(), entry.getOperationType());
         
         try {
-            // Call the public API (proxy)
-            CacheOperationResponse response = cacheService.performCacheOpSingle(entry);
+            // Call the public API (proxy) - always use List even for single entry
+            CacheOperationResponse response = cacheService.performCacheOpBatch(List.of(entry));
             
             // Return JSON response
             if (response.isSuccess()) {

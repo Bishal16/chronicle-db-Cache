@@ -15,10 +15,13 @@ import java.util.UUID;
 /**
  * Implementation of the public Cache Service Proxy.
  * This class acts as a facade/proxy that:
- * 1. Exposes ONLY the two public APIs
+ * 1. Exposes ONLY ONE public API method for simplicity
  * 2. Delegates to internal core implementation
  * 3. Converts between public API types and internal types
  * 4. Hides all internal complexity from external clients
+ * 
+ * IMPORTANT: Always use List<WALEntry>, even for single entries.
+ * This simplifies the API and reduces error potential.
  * 
  * This is the ONLY entry point for gRPC, REST, and other adapters.
  */
@@ -64,22 +67,6 @@ public class CacheServiceProxyImpl implements CacheServiceProxy {
         }
     }
     
-    /**
-     * Process a single cache operation.
-     * Creates a single-entry batch and delegates to batch API.
-     */
-    @Override
-    public CacheOperationResponse performCacheOpSingle(WALEntry entry) {
-        if (entry == null) {
-            return CacheOperationResponse.failure("INVALID_ENTRY", "Entry cannot be null");
-        }
-        
-        logger.debug("Processing single entry as batch: table={}", 
-                   entry.getTableName());
-        
-        // Delegate to batch processing using the new API
-        return performCacheOpBatch(List.of(entry));
-    }
     
     /**
      * Convert internal result to public API response.

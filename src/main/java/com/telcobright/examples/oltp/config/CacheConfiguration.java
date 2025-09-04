@@ -1,72 +1,67 @@
 package com.telcobright.examples.oltp.config;
 
-import com.telcobright.core.cache.impl.UniversalCacheCoreImpl;
-import com.telcobright.core.cache.universal.EntityCacheHandler;
-import com.telcobright.examples.oltp.handlers.PackageAccountHandler;
-import com.telcobright.examples.oltp.handlers.PackageAccountReserveHandler;
+import com.telcobright.core.cache.CacheEntityTypeSet;
+import com.telcobright.core.cache.GenericStorageCacheManager;
+import com.telcobright.core.cache.wal.api.WALProducer;
+import com.telcobright.core.cache.wal.api.WALConsumer;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
+import jakarta.inject.Inject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.sql.DataSource;
+import java.util.HashMap;
+import java.util.Map;
+
 /**
- * Configuration class for setting up the Universal Cache with entity handlers.
- * This shows how to configure the cache system for a real application.
+ * Configuration class for setting up the GenericStorage-based Cache.
+ * This shows how to configure the cache system with the new unified storage architecture.
  */
 @ApplicationScoped
 public class CacheConfiguration {
     private static final Logger logger = LoggerFactory.getLogger(CacheConfiguration.class);
     
+    @Inject
+    private WALProducer walProducer;
+    
+    @Inject
+    private WALConsumer walConsumer;
+    
+    @Inject
+    private DataSource dataSource;
+    
     /**
-     * Produces a configured UniversalCacheCoreImpl with all entity handlers registered.
-     * This bean can be injected as CacheCoreAPI throughout the application.
+     * Produces a configured GenericStorageCacheManager with unified storage.
+     * This bean will be injected into GenericStorageCacheCoreImpl.
      */
     @Produces
     @ApplicationScoped
-    public UniversalCacheCoreImpl configureCacheCore() {
-        logger.info("Configuring Universal Cache Core with entity handlers...");
+    public GenericStorageCacheManager configureCacheManager() {
+        logger.info("Configuring GenericStorageCacheManager with unified storage...");
         
-        // Create the cache core implementation
-        UniversalCacheCoreImpl cacheCore = new UniversalCacheCoreImpl() {
-            @Override
-            protected void registerDefaultHandlers() {
-                logger.info("Registering entity handlers...");
-                
-                // Register handler for PackageAccount entities
-                registerHandler(new PackageAccountHandler());
-                logger.info("Registered PackageAccountHandler");
-                
-                // Register handler for PackageAccountReserve entities
-                registerHandler(new PackageAccountReserveHandler());
-                logger.info("Registered PackageAccountReserveHandler");
-                
-                // Add more handlers as needed for other entity types
-                // registerHandler(new CustomEntityHandler());
-            }
-        };
+        // Configure entity type capacities
+        Map<CacheEntityTypeSet, Integer> capacities = new HashMap<>();
+        capacities.put(CacheEntityTypeSet.PACKAGE_ACCOUNT, 10000);
+        capacities.put(CacheEntityTypeSet.PACKAGE_ACCOUNT_RESERVE, 10000);
+        capacities.put(CacheEntityTypeSet.CUSTOMER, 5000);
+        capacities.put(CacheEntityTypeSet.ORDER, 15000);
+        capacities.put(CacheEntityTypeSet.PRODUCT, 2000);
+        capacities.put(CacheEntityTypeSet.TRANSACTION_LOG, 20000);
         
-        logger.info("Universal Cache Core configured successfully");
-        return cacheCore;
-    }
-    
-    /**
-     * Example of how to create a custom handler for a new entity type
-     */
-    public static class CustomEntityHandler extends com.telcobright.core.cache.universal.GenericEntityHandler<Long, Object> {
-        public CustomEntityHandler() {
-            super("customTable", Object.class, "id");
-        }
+        // Create GenericStorageCacheManager with unified storage
+        GenericStorageCacheManager cacheManager = new GenericStorageCacheManager(
+            walProducer,
+            walConsumer,
+            dataSource,
+            100000,  // Total max records across all entity types
+            capacities
+        );
         
-        @Override
-        protected Long extractKey(com.telcobright.core.wal.WALEntry entry) {
-            Object id = entry.get("id");
-            return id instanceof Long ? (Long) id : Long.valueOf(id.toString());
-        }
+        logger.info("GenericStorageCacheManager configured successfully");
+        logger.info("All entities will be stored in a single unified storage");
+        logger.info("This ensures true atomicity for multi-entity transactions");
         
-        @Override
-        protected Object convertToEntity(com.telcobright.core.wal.WALEntry entry) {
-            // Convert WAL entry to your custom entity type
-            return entry.getData(); // Simplified - return the data map
-        }
+        return cacheManager;
     }
 }

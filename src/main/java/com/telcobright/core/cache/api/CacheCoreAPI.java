@@ -1,6 +1,5 @@
 package com.telcobright.core.cache.api;
 
-import com.telcobright.core.wal.WALEntry;
 import com.telcobright.core.wal.WALEntryBatch;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -19,37 +18,29 @@ public interface CacheCoreAPI {
     
     /**
      * Process a batch of cache operations atomically.
-     * This is the primary method for transactional operations.
+     * This is the PRIMARY and ONLY method for cache operations.
      * 
-     * @param batch The WAL entry batch containing multiple operations
+     * IMPORTANT: Always use WALEntryBatch, even for single entries.
+     * This ensures consistent transaction handling and atomicity.
+     * 
+     * For single entries, use: 
+     *   WALEntryBatch.builder()
+     *     .transactionId("TXN_" + System.currentTimeMillis())
+     *     .addEntry(entry)
+     *     .build()
+     * 
+     * @param batch The WAL entry batch containing one or more operations
      * @return Result of the batch operation
      */
     CacheOperationResult performCacheOpBatch(WALEntryBatch batch);
     
     /**
-     * Process a single cache operation.
-     * Internally creates a single-entry batch for consistency.
-     * 
-     * @param entry The WAL entry for a single operation
-     * @return Result of the operation
-     */
-    CacheOperationResult performCacheOpSingle(WALEntry entry);
-    
-    /**
      * Process a batch asynchronously.
      * 
-     * @param batch The WAL entry batch
+     * @param batch The WAL entry batch (can contain single or multiple entries)
      * @return CompletableFuture with the result
      */
     CompletableFuture<CacheOperationResult> performCacheOpBatchAsync(WALEntryBatch batch);
-    
-    /**
-     * Process a single operation asynchronously.
-     * 
-     * @param entry The WAL entry
-     * @return CompletableFuture with the result
-     */
-    CompletableFuture<CacheOperationResult> performCacheOpSingleAsync(WALEntry entry);
     
     /**
      * Process multiple batches in a single transaction.

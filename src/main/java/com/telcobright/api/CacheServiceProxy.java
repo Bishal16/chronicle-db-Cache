@@ -6,7 +6,12 @@ import java.util.List;
 /**
  * Public API Proxy for Cache Service.
  * This is the ONLY public interface exposed to external clients.
- * All internal complexity is hidden behind these two simple methods.
+ * All internal complexity is hidden behind this simple method.
+ * 
+ * IMPORTANT: Always use List<WALEntry>, even for single entries.
+ * This ensures consistent transaction handling and simplifies the API.
+ * 
+ * For single entries, simply use: List.of(entry)
  * 
  * This proxy delegates to the internal core implementation while
  * maintaining a clean, minimal public API surface.
@@ -14,21 +19,17 @@ import java.util.List;
 public interface CacheServiceProxy {
     
     /**
-     * Process a batch of cache operations atomically.
-     * This is the primary API for all multi-operation transactions.
-     * Transaction ID will be automatically generated internally.
+     * Process cache operations atomically.
      * 
-     * @param entries List of WAL entries to process as a single transaction
+     * This is the ONLY API method for all cache operations.
+     * - For single operations: use List.of(entry)
+     * - For batch operations: pass the list of entries
+     * 
+     * Transaction ID will be automatically generated internally.
+     * All entries in the list will be processed as a single atomic transaction.
+     * 
+     * @param entries List of WAL entries (can contain 1 or more entries)
      * @return Result containing success status and operation details
      */
     CacheOperationResponse performCacheOpBatch(List<WALEntry> entries);
-    
-    /**
-     * Process a single cache operation.
-     * Internally creates a single-entry batch for consistency.
-     * 
-     * @param entry The WAL entry representing a single operation
-     * @return Result containing success status and operation details
-     */
-    CacheOperationResponse performCacheOpSingle(WALEntry entry);
 }
