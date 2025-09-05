@@ -1,0 +1,1299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chronicle Cache Architecture - Single Responsibility Principle Design</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        
+        nav {
+            background: #f8f9fa;
+            padding: 20px;
+            border-bottom: 2px solid #dee2e6;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        nav ul {
+            list-style: none;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        nav a {
+            display: block;
+            padding: 10px 20px;
+            background: white;
+            color: #667eea;
+            text-decoration: none;
+            border-radius: 5px;
+            border: 2px solid #667eea;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+        
+        nav a:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .content {
+            padding: 40px;
+        }
+        
+        .layer {
+            margin-bottom: 60px;
+        }
+        
+        .layer-title {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+        
+        .layer-title h2 {
+            font-size: 1.8em;
+            margin-bottom: 10px;
+        }
+        
+        .layer-description {
+            opacity: 0.95;
+        }
+        
+        .class-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+        
+        .class-card {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 20px;
+            transition: all 0.3s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .class-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            border-color: #667eea;
+        }
+        
+        .class-name {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 10px;
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 10px;
+        }
+        
+        .class-responsibility {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .class-responsibility h4 {
+            color: #495057;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .class-responsibility p {
+            color: #212529;
+            font-weight: 500;
+        }
+        
+        .methods-section {
+            margin-top: 15px;
+        }
+        
+        .methods-title {
+            font-weight: bold;
+            color: #495057;
+            margin-bottom: 10px;
+            font-size: 0.95em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .method-list {
+            list-style: none;
+        }
+        
+        .method-item {
+            background: #f8f9fa;
+            margin-bottom: 8px;
+            padding: 10px;
+            border-radius: 5px;
+            border-left: 3px solid #764ba2;
+            transition: all 0.2s;
+        }
+        
+        .method-item:hover {
+            background: #e9ecef;
+            transform: translateX(5px);
+        }
+        
+        .method-name {
+            font-weight: 600;
+            color: #764ba2;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .method-purpose {
+            color: #6c757d;
+            font-size: 0.9em;
+            margin-top: 3px;
+        }
+        
+        .srp-badge {
+            display: inline-block;
+            background: #28a745;
+            color: white;
+            padding: 3px 10px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            margin-left: 10px;
+        }
+        
+        .srp-violation {
+            background: #dc3545;
+        }
+        
+        .srp-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+        
+        .architecture-diagram {
+            background: white;
+            border: 2px solid #dee2e6;
+            border-radius: 10px;
+            padding: 30px;
+            margin: 40px 0;
+            text-align: center;
+        }
+        
+        .flow-diagram {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin: 30px 0;
+        }
+        
+        .flow-item {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 25px;
+            font-weight: bold;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .flow-arrow {
+            font-size: 2em;
+            color: #667eea;
+        }
+        
+        .principles-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 30px;
+            margin: 40px 0;
+        }
+        
+        .principles-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .principle-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid #dee2e6;
+            text-align: center;
+        }
+        
+        .principle-card h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        
+        .stats-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 40px 0;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .stat-number {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 Chronicle Cache Architecture</h1>
+            <p>Single Responsibility Principle (SRP) Design Document</p>
+            <p style="margin-top: 15px; font-size: 1em; opacity: 0.8">Each class has ONE reason to change</p>
+        </header>
+        
+        <nav>
+            <ul>
+                <li><a href="#overview">Overview</a></li>
+                <li><a href="#api-layer">API Layer</a></li>
+                <li><a href="#core-layer">Core Layer</a></li>
+                <li><a href="#storage-layer">Storage Layer</a></li>
+                <li><a href="#wal-layer">WAL Layer</a></li>
+                <li><a href="#adapter-layer">Adapter Layer</a></li>
+                <li><a href="#client-layer">Client Layer</a></li>
+                <li><a href="#principles">SRP Principles</a></li>
+            </ul>
+        </nav>
+        
+        <div class="content">
+            <!-- Overview Section -->
+            <section id="overview" class="architecture-diagram">
+                <h2 style="color: #667eea; margin-bottom: 20px;">System Architecture Overview</h2>
+                <div class="flow-diagram">
+                    <div class="flow-item">Client</div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-item">API Proxy</div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-item">Core</div>
+                    <span class="flow-arrow">→</span>
+                    <div class="flow-item">Storage</div>
+                </div>
+                <div class="stats-section">
+                    <div class="stat-card">
+                        <div class="stat-number">7</div>
+                        <div class="stat-label">Architecture Layers</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">95+</div>
+                        <div class="stat-label">Total Classes</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">100%</div>
+                        <div class="stat-label">SRP Compliance Goal</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">1</div>
+                        <div class="stat-label">Responsibility Per Class</div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- API Layer -->
+            <section id="api-layer" class="layer">
+                <div class="layer-title">
+                    <h2>🔌 API Layer</h2>
+                    <p class="layer-description">Public-facing API and proxy services</p>
+                </div>
+                
+                <div class="class-container">
+                    <!-- CacheServiceProxy -->
+                    <div class="class-card">
+                        <div class="class-name">
+                            CacheServiceProxy
+                            <span class="srp-badge">SRP ✓</span>
+                        </div>
+                        <div class="class-responsibility">
+                            <h4>Single Responsibility</h4>
+                            <p>Define the public contract for cache operations</p>
+                        </div>
+                        <div class="methods-section">
+                            <div class="methods-title">Methods</div>
+                            <ul class="method-list">
+                                <li class="method-item">
+                                    <div class="method-name">performCacheOpBatch(List&lt;WALEntry&gt;)</div>
+                                    <div class="method-purpose">Process cache operations atomically</div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <!-- CacheServiceProxyImpl -->
+                    <div class="class-card">
+                        <div class="class-name">
+                            CacheServiceProxyImpl
+                            <span class="srp-badge">SRP ✓</span>
+                        </div>
+                        <div class="class-responsibility">
+                            <h4>Single Responsibility</h4>
+                            <p>Bridge external requests to internal core implementation</p>
+                        </div>
+                        <div class="methods-section">
+                            <div class="methods-title">Methods</div>
+                            <ul class="method-list">
+                                <li class="method-item">
+                                    <div class="method-name">performCacheOpBatch()</div>
+                                    <div class="method-purpose">Convert external request to internal batch format</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">convertToPublicResponse()</div>
+                                    <div class="method-purpose">Transform internal result to public API response</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">initialize()</div>
+                                    <div class="method-purpose">Initialize proxy service on startup</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">shutdown()</div>
+                                    <div class="method-purpose">Clean shutdown of proxy service</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">isHealthy()</div>
+                                    <div class="method-purpose">Check proxy service health status</div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <!-- CacheOperationResponse -->
+                    <div class="class-card">
+                        <div class="class-name">
+                            CacheOperationResponse
+                            <span class="srp-badge">SRP ✓</span>
+                        </div>
+                        <div class="class-responsibility">
+                            <h4>Single Responsibility</h4>
+                            <p>Encapsulate cache operation response data</p>
+                        </div>
+                        <div class="methods-section">
+                            <div class="methods-title">Methods</div>
+                            <ul class="method-list">
+                                <li class="method-item">
+                                    <div class="method-name">success()</div>
+                                    <div class="method-purpose">Create successful response</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">failure()</div>
+                                    <div class="method-purpose">Create failure response</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">isSuccess()</div>
+                                    <div class="method-purpose">Check if operation succeeded</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">getters</div>
+                                    <div class="method-purpose">Access response data fields</div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Core Layer -->
+            <section id="core-layer" class="layer">
+                <div class="layer-title">
+                    <h2>⚙️ Core Layer</h2>
+                    <p class="layer-description">Core business logic and cache management</p>
+                </div>
+                
+                <div class="class-container">
+                    <!-- CacheCoreAPI -->
+                    <div class="class-card">
+                        <div class="class-name">
+                            CacheCoreAPI
+                            <span class="srp-badge">SRP ✓</span>
+                        </div>
+                        <div class="class-responsibility">
+                            <h4>Single Responsibility</h4>
+                            <p>Define internal cache operations contract</p>
+                        </div>
+                        <div class="methods-section">
+                            <div class="methods-title">Methods</div>
+                            <ul class="method-list">
+                                <li class="method-item">
+                                    <div class="method-name">performCacheOpBatch()</div>
+                                    <div class="method-purpose">Process batch operations</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">performCacheOpBatchAsync()</div>
+                                    <div class="method-purpose">Async batch processing</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">performMultiBatch()</div>
+                                    <div class="method-purpose">Process multiple batches</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">queryCache()</div>
+                                    <div class="method-purpose">Query cache data</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">getStatistics()</div>
+                                    <div class="method-purpose">Get cache statistics</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">getHealthStatus()</div>
+                                    <div class="method-purpose">Check health status</div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <!-- GenericStorageCacheCoreImpl -->
+                    <div class="class-card">
+                        <div class="class-name">
+                            GenericStorageCacheCoreImpl
+                            <span class="srp-badge">SRP ✓</span>
+                        </div>
+                        <div class="class-responsibility">
+                            <h4>Single Responsibility</h4>
+                            <p>Orchestrate cache operations using unified storage</p>
+                        </div>
+                        <div class="methods-section">
+                            <div class="methods-title">Methods</div>
+                            <ul class="method-list">
+                                <li class="method-item">
+                                    <div class="method-name">performCacheOpBatch()</div>
+                                    <div class="method-purpose">Execute batch operations on storage</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">performMultiBatch()</div>
+                                    <div class="method-purpose">Execute multiple batches transactionally</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">queryCache()</div>
+                                    <div class="method-purpose">Query data from storage</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">initialize()</div>
+                                    <div class="method-purpose">Initialize core services</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">shutdown()</div>
+                                    <div class="method-purpose">Graceful shutdown</div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <!-- GenericStorageCacheManager -->
+                    <div class="class-card">
+                        <div class="class-name">
+                            GenericStorageCacheManager
+                            <span class="srp-badge">SRP ✓</span>
+                        </div>
+                        <div class="class-responsibility">
+                            <h4>Single Responsibility</h4>
+                            <p>Manage unified entity storage and transactions</p>
+                        </div>
+                        <div class="methods-section">
+                            <div class="methods-title">Methods</div>
+                            <ul class="method-list">
+                                <li class="method-item">
+                                    <div class="method-name">initialize()</div>
+                                    <div class="method-purpose">Initialize storage system</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">processBatch()</div>
+                                    <div class="method-purpose">Process WAL batch atomically</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">get()</div>
+                                    <div class="method-purpose">Retrieve entity from storage</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">getAll()</div>
+                                    <div class="method-purpose">Retrieve all entities of a type</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">getStatistics()</div>
+                                    <div class="method-purpose">Get storage statistics</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">shutdown()</div>
+                                    <div class="method-purpose">Shutdown storage system</div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <!-- CacheEntityTypeSet -->
+                    <div class="class-card">
+                        <div class="class-name">
+                            CacheEntityTypeSet
+                            <span class="srp-badge">SRP ✓</span>
+                        </div>
+                        <div class="class-responsibility">
+                            <h4>Single Responsibility</h4>
+                            <p>Define and map entity types for the cache system</p>
+                        </div>
+                        <div class="methods-section">
+                            <div class="methods-title">Methods</div>
+                            <ul class="method-list">
+                                <li class="method-item">
+                                    <div class="method-name">getTypeId()</div>
+                                    <div class="method-purpose">Get unique type identifier</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">fromTableName()</div>
+                                    <div class="method-purpose">Map table name to entity type</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">values()</div>
+                                    <div class="method-purpose">Get all entity types</div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Storage Layer -->
+            <section id="storage-layer" class="layer">
+                <div class="layer-title">
+                    <h2>💾 Storage Layer</h2>
+                    <p class="layer-description">Data persistence and entity management</p>
+                </div>
+                
+                <div class="class-container">
+                    <!-- CacheEntity -->
+                    <div class="class-card">
+                        <div class="class-name">
+                            CacheEntity
+                            <span class="srp-badge">SRP ✓</span>
+                        </div>
+                        <div class="class-responsibility">
+                            <h4>Single Responsibility</h4>
+                            <p>Universal entity container for all cached objects</p>
+                        </div>
+                        <div class="methods-section">
+                            <div class="methods-title">Methods</div>
+                            <ul class="method-list">
+                                <li class="method-item">
+                                    <div class="method-name">getId/setId()</div>
+                                    <div class="method-purpose">Manage entity identifier</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">get/set field methods</div>
+                                    <div class="method-purpose">Access typed field values</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">setField()</div>
+                                    <div class="method-purpose">Set field by name dynamically</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">getField()</div>
+                                    <div class="method-purpose">Get field by name dynamically</div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <!-- EntityCache -->
+                    <div class="class-card">
+                        <div class="class-name">
+                            EntityCache&lt;K,V&gt;
+                            <span class="srp-badge">SRP ✓</span>
+                        </div>
+                        <div class="class-responsibility">
+                            <h4>Single Responsibility</h4>
+                            <p>Manage in-memory cache for a specific entity type</p>
+                        </div>
+                        <div class="methods-section">
+                            <div class="methods-title">Methods</div>
+                            <ul class="method-list">
+                                <li class="method-item">
+                                    <div class="method-name">put()</div>
+                                    <div class="method-purpose">Store entity in cache</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">get()</div>
+                                    <div class="method-purpose">Retrieve entity by key</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">remove()</div>
+                                    <div class="method-purpose">Remove entity from cache</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">clear()</div>
+                                    <div class="method-purpose">Clear all cached entities</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">size()</div>
+                                    <div class="method-purpose">Get cache size</div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <!-- ChronicleQueueCache -->
+                    <div class="class-card">
+                        <div class="class-name">
+                            ChronicleQueueCache
+                            <span class="srp-badge">SRP ✓</span>
+                        </div>
+                        <div class="class-responsibility">
+                            <h4>Single Responsibility</h4>
+                            <p>Provide Chronicle Queue-based persistent cache</p>
+                        </div>
+                        <div class="methods-section">
+                            <div class="methods-title">Methods</div>
+                            <ul class="method-list">
+                                <li class="method-item">
+                                    <div class="method-name">append()</div>
+                                    <div class="method-purpose">Append entry to queue</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">read()</div>
+                                    <div class="method-purpose">Read entries from queue</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">createTailer()</div>
+                                    <div class="method-purpose">Create queue reader</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">close()</div>
+                                    <div class="method-purpose">Close queue resources</div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- WAL Layer -->
+            <section id="wal-layer" class="layer">
+                <div class="layer-title">
+                    <h2>📝 WAL (Write-Ahead Log) Layer</h2>
+                    <p class="layer-description">Transaction logging and durability</p>
+                </div>
+                
+                <div class="class-container">
+                    <!-- WALEntry -->
+                    <div class="class-card">
+                        <div class="class-name">
+                            WALEntry
+                            <span class="srp-badge">SRP ✓</span>
+                        </div>
+                        <div class="class-responsibility">
+                            <h4>Single Responsibility</h4>
+                            <p>Represent a single database operation in the log</p>
+                        </div>
+                        <div class="methods-section">
+                            <div class="methods-title">Methods</div>
+                            <ul class="method-list">
+                                <li class="method-item">
+                                    <div class="method-name">Builder pattern</div>
+                                    <div class="method-purpose">Construct WAL entry</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">getDbName()</div>
+                                    <div class="method-purpose">Get database name</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">getTableName()</div>
+                                    <div class="method-purpose">Get table name</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">getOperationType()</div>
+                                    <div class="method-purpose">Get operation type</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">getData()</div>
+                                    <div class="method-purpose">Get operation data</div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <!-- WALEntryBatch -->
+                    <div class="class-card">
+                        <div class="class-name">
+                            WALEntryBatch
+                            <span class="srp-badge">SRP ✓</span>
+                        </div>
+                        <div class="class-responsibility">
+                            <h4>Single Responsibility</h4>
+                            <p>Group multiple WAL entries as atomic transaction</p>
+                        </div>
+                        <div class="methods-section">
+                            <div class="methods-title">Methods</div>
+                            <ul class="method-list">
+                                <li class="method-item">
+                                    <div class="method-name">builder()</div>
+                                    <div class="method-purpose">Create batch builder</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">getTransactionId()</div>
+                                    <div class="method-purpose">Get transaction identifier</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">getEntries()</div>
+                                    <div class="method-purpose">Get batch entries</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">size()</div>
+                                    <div class="method-purpose">Get entry count</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">addEntry()</div>
+                                    <div class="method-purpose">Add entry to batch</div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <!-- WALProducer -->
+                    <div class="class-card">
+                        <div class="class-name">
+                            WALProducer
+                            <span class="srp-badge">SRP ✓</span>
+                        </div>
+                        <div class="class-responsibility">
+                            <h4>Single Responsibility</h4>
+                            <p>Write WAL entries to persistent storage</p>
+                        </div>
+                        <div class="methods-section">
+                            <div class="methods-title">Methods</div>
+                            <ul class="method-list">
+                                <li class="method-item">
+                                    <div class="method-name">append()</div>
+                                    <div class="method-purpose">Append batch to WAL</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">flush()</div>
+                                    <div class="method-purpose">Flush pending writes</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">getCurrentOffset()</div>
+                                    <div class="method-purpose">Get current write position</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">isHealthy()</div>
+                                    <div class="method-purpose">Check producer health</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">close()</div>
+                                    <div class="method-purpose">Close producer resources</div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <!-- WALConsumer -->
+                    <div class="class-card">
+                        <div class="class-name">
+                            WALConsumer
+                            <span class="srp-badge">SRP ✓</span>
+                        </div>
+                        <div class="class-responsibility">
+                            <h4>Single Responsibility</h4>
+                            <p>Read WAL entries from persistent storage</p>
+                        </div>
+                        <div class="methods-section">
+                            <div class="methods-title">Methods</div>
+                            <ul class="method-list">
+                                <li class="method-item">
+                                    <div class="method-name">readNextBatch()</div>
+                                    <div class="method-purpose">Read next batch of entries</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">seekTo()</div>
+                                    <div class="method-purpose">Seek to specific offset</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">commitOffset()</div>
+                                    <div class="method-purpose">Commit processed offset</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">handleCorruption()</div>
+                                    <div class="method-purpose">Handle corrupted entries</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">isHealthy()</div>
+                                    <div class="method-purpose">Check consumer health</div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Adapter Layer -->
+            <section id="adapter-layer" class="layer">
+                <div class="layer-title">
+                    <h2>🔄 Adapter Layer</h2>
+                    <p class="layer-description">Protocol adapters for external communication</p>
+                </div>
+                
+                <div class="class-container">
+                    <!-- RestCacheAdapter -->
+                    <div class="class-card">
+                        <div class="class-name">
+                            RestCacheAdapter
+                            <span class="srp-badge">SRP ✓</span>
+                        </div>
+                        <div class="class-responsibility">
+                            <h4>Single Responsibility</h4>
+                            <p>Expose cache operations via REST API</p>
+                        </div>
+                        <div class="methods-section">
+                            <div class="methods-title">Methods</div>
+                            <ul class="method-list">
+                                <li class="method-item">
+                                    <div class="method-name">processBatch()</div>
+                                    <div class="method-purpose">Handle REST batch requests</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">processSingle()</div>
+                                    <div class="method-purpose">Handle REST single requests</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">getHealth()</div>
+                                    <div class="method-purpose">REST health endpoint</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">getStats()</div>
+                                    <div class="method-purpose">REST statistics endpoint</div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <!-- GrpcCacheAdapter -->
+                    <div class="class-card">
+                        <div class="class-name">
+                            GrpcCacheAdapter
+                            <span class="srp-badge">SRP ✓</span>
+                        </div>
+                        <div class="class-responsibility">
+                            <h4>Single Responsibility</h4>
+                            <p>Expose cache operations via gRPC</p>
+                        </div>
+                        <div class="methods-section">
+                            <div class="methods-title">Methods</div>
+                            <ul class="method-list">
+                                <li class="method-item">
+                                    <div class="method-name">processCacheBatch()</div>
+                                    <div class="method-purpose">Handle gRPC batch requests</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">streamCacheOps()</div>
+                                    <div class="method-purpose">Handle streaming operations</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">getStatus()</div>
+                                    <div class="method-purpose">gRPC status endpoint</div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <!-- GrpcMessageConverter -->
+                    <div class="class-card">
+                        <div class="class-name">
+                            GrpcMessageConverter
+                            <span class="srp-badge">SRP ✓</span>
+                        </div>
+                        <div class="class-responsibility">
+                            <h4>Single Responsibility</h4>
+                            <p>Convert between gRPC messages and domain objects</p>
+                        </div>
+                        <div class="methods-section">
+                            <div class="methods-title">Methods</div>
+                            <ul class="method-list">
+                                <li class="method-item">
+                                    <div class="method-name">toWALEntry()</div>
+                                    <div class="method-purpose">Convert proto to WAL entry</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">toProto()</div>
+                                    <div class="method-purpose">Convert WAL entry to proto</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">toBatchProto()</div>
+                                    <div class="method-purpose">Convert batch to proto</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">fromBatchProto()</div>
+                                    <div class="method-purpose">Convert proto to batch</div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Client Layer -->
+            <section id="client-layer" class="layer">
+                <div class="layer-title">
+                    <h2>👤 Client Layer</h2>
+                    <p class="layer-description">Client libraries and connection management</p>
+                </div>
+                
+                <div class="class-container">
+                    <!-- CacheClient -->
+                    <div class="class-card">
+                        <div class="class-name">
+                            CacheClient
+                            <span class="srp-badge">SRP ✓</span>
+                        </div>
+                        <div class="class-responsibility">
+                            <h4>Single Responsibility</h4>
+                            <p>Define client operations contract</p>
+                        </div>
+                        <div class="methods-section">
+                            <div class="methods-title">Methods</div>
+                            <ul class="method-list">
+                                <li class="method-item">
+                                    <div class="method-name">connect()</div>
+                                    <div class="method-purpose">Establish connection</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">execute()</div>
+                                    <div class="method-purpose">Execute cache operation</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">query()</div>
+                                    <div class="method-purpose">Query cache data</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">disconnect()</div>
+                                    <div class="method-purpose">Close connection</div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <!-- TransactionalCacheClient -->
+                    <div class="class-card">
+                        <div class="class-name">
+                            TransactionalCacheClient
+                            <span class="srp-badge">SRP ✓</span>
+                        </div>
+                        <div class="class-responsibility">
+                            <h4>Single Responsibility</h4>
+                            <p>Manage transactional cache operations</p>
+                        </div>
+                        <div class="methods-section">
+                            <div class="methods-title">Methods</div>
+                            <ul class="method-list">
+                                <li class="method-item">
+                                    <div class="method-name">beginTransaction()</div>
+                                    <div class="method-purpose">Start new transaction</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">addOperation()</div>
+                                    <div class="method-purpose">Add operation to transaction</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">commit()</div>
+                                    <div class="method-purpose">Commit transaction</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">rollback()</div>
+                                    <div class="method-purpose">Rollback transaction</div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <!-- CacheClientFactory -->
+                    <div class="class-card">
+                        <div class="class-name">
+                            CacheClientFactory
+                            <span class="srp-badge">SRP ✓</span>
+                        </div>
+                        <div class="class-responsibility">
+                            <h4>Single Responsibility</h4>
+                            <p>Create appropriate cache client instances</p>
+                        </div>
+                        <div class="methods-section">
+                            <div class="methods-title">Methods</div>
+                            <ul class="method-list">
+                                <li class="method-item">
+                                    <div class="method-name">createEmbedded()</div>
+                                    <div class="method-purpose">Create embedded client</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">createRemote()</div>
+                                    <div class="method-purpose">Create remote client</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">createGrpc()</div>
+                                    <div class="method-purpose">Create gRPC client</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">createRest()</div>
+                                    <div class="method-purpose">Create REST client</div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Support Classes -->
+            <section id="support-layer" class="layer">
+                <div class="layer-title">
+                    <h2>🛠️ Support Layer</h2>
+                    <p class="layer-description">Supporting utilities and value objects</p>
+                </div>
+                
+                <div class="class-container">
+                    <!-- CacheOperationResult -->
+                    <div class="class-card">
+                        <div class="class-name">
+                            CacheOperationResult
+                            <span class="srp-badge">SRP ✓</span>
+                        </div>
+                        <div class="class-responsibility">
+                            <h4>Single Responsibility</h4>
+                            <p>Encapsulate internal operation results</p>
+                        </div>
+                        <div class="methods-section">
+                            <div class="methods-title">Methods</div>
+                            <ul class="method-list">
+                                <li class="method-item">
+                                    <div class="method-name">builder()</div>
+                                    <div class="method-purpose">Build result object</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">isSuccess()</div>
+                                    <div class="method-purpose">Check success status</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">getOperationsProcessed()</div>
+                                    <div class="method-purpose">Get processed count</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">getErrorMessage()</div>
+                                    <div class="method-purpose">Get error details</div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <!-- CacheQuery -->
+                    <div class="class-card">
+                        <div class="class-name">
+                            CacheQuery
+                            <span class="srp-badge">SRP ✓</span>
+                        </div>
+                        <div class="class-responsibility">
+                            <h4>Single Responsibility</h4>
+                            <p>Represent cache query parameters</p>
+                        </div>
+                        <div class="methods-section">
+                            <div class="methods-title">Methods</div>
+                            <ul class="method-list">
+                                <li class="method-item">
+                                    <div class="method-name">builder()</div>
+                                    <div class="method-purpose">Build query object</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">getType()</div>
+                                    <div class="method-purpose">Get query type</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">getKey()</div>
+                                    <div class="method-purpose">Get query key</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">getFilters()</div>
+                                    <div class="method-purpose">Get query filters</div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <!-- CacheStatistics -->
+                    <div class="class-card">
+                        <div class="class-name">
+                            CacheStatistics
+                            <span class="srp-badge">SRP ✓</span>
+                        </div>
+                        <div class="class-responsibility">
+                            <h4>Single Responsibility</h4>
+                            <p>Hold cache performance metrics</p>
+                        </div>
+                        <div class="methods-section">
+                            <div class="methods-title">Methods</div>
+                            <ul class="method-list">
+                                <li class="method-item">
+                                    <div class="method-name">getTotalEntries()</div>
+                                    <div class="method-purpose">Get total entry count</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">getCacheHits()</div>
+                                    <div class="method-purpose">Get hit count</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">getCacheMisses()</div>
+                                    <div class="method-purpose">Get miss count</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">getHitRatio()</div>
+                                    <div class="method-purpose">Calculate hit ratio</div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <!-- HealthStatus -->
+                    <div class="class-card">
+                        <div class="class-name">
+                            HealthStatus
+                            <span class="srp-badge">SRP ✓</span>
+                        </div>
+                        <div class="class-responsibility">
+                            <h4>Single Responsibility</h4>
+                            <p>Report system health status</p>
+                        </div>
+                        <div class="methods-section">
+                            <div class="methods-title">Methods</div>
+                            <ul class="method-list">
+                                <li class="method-item">
+                                    <div class="method-name">builder()</div>
+                                    <div class="method-purpose">Build health status</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">isHealthy()</div>
+                                    <div class="method-purpose">Check overall health</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">getStatus()</div>
+                                    <div class="method-purpose">Get status enum</div>
+                                </li>
+                                <li class="method-item">
+                                    <div class="method-name">getChecks()</div>
+                                    <div class="method-purpose">Get health checks</div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- SRP Principles Section -->
+            <section id="principles" class="principles-section">
+                <h2 style="text-align: center; color: #667eea; margin-bottom: 20px;">Single Responsibility Principle Guidelines</h2>
+                
+                <div class="principles-grid">
+                    <div class="principle-card">
+                        <h3>One Reason to Change</h3>
+                        <p>Each class should have only one reason to change</p>
+                    </div>
+                    <div class="principle-card">
+                        <h3>High Cohesion</h3>
+                        <p>Methods within a class work together for one purpose</p>
+                    </div>
+                    <div class="principle-card">
+                        <h3>Low Coupling</h3>
+                        <p>Classes depend on abstractions, not implementations</p>
+                    </div>
+                    <div class="principle-card">
+                        <h3>Clear Naming</h3>
+                        <p>Class names clearly express their single responsibility</p>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 40px; padding: 20px; background: white; border-radius: 10px;">
+                    <h3 style="color: #667eea; margin-bottom: 15px;">SRP Compliance Assessment</h3>
+                    <ul style="list-style: none; line-height: 2;">
+                        <li>✅ <strong>API Layer:</strong> Each class handles one aspect of external communication</li>
+                        <li>✅ <strong>Core Layer:</strong> Clear separation between orchestration and storage management</li>
+                        <li>✅ <strong>Storage Layer:</strong> Each class manages one type of storage concern</li>
+                        <li>✅ <strong>WAL Layer:</strong> Distinct classes for reading, writing, and data representation</li>
+                        <li>✅ <strong>Adapter Layer:</strong> Protocol-specific adapters with single focus</li>
+                        <li>✅ <strong>Client Layer:</strong> Separate classes for connection, transaction, and factory concerns</li>
+                        <li>✅ <strong>Support Layer:</strong> Value objects with single data responsibility</li>
+                    </ul>
+                </div>
+                
+                <div style="margin-top: 40px; padding: 20px; background: #f8f9fa; border-radius: 10px;">
+                    <h3 style="color: #667eea; margin-bottom: 15px;">Refactoring Recommendations</h3>
+                    <ul style="list-style: none; line-height: 2;">
+                        <li>🔄 <strong>Future Enhancement:</strong> Consider splitting large service classes if they grow beyond 200 lines</li>
+                        <li>🔄 <strong>Monitoring:</strong> Watch for methods that don't align with class responsibility</li>
+                        <li>🔄 <strong>Testing:</strong> Each class should be testable in isolation</li>
+                        <li>🔄 <strong>Documentation:</strong> Update when responsibilities shift or expand</li>
+                    </ul>
+                </div>
+            </section>
+        </div>
+    </div>
+</body>
+</html>

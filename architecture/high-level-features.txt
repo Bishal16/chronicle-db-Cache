@@ -1,0 +1,75 @@
+┌─────────────────────────────────────────────────────────────────┐
+│                    CHRONICLE CACHE SYSTEM                       │
+│                   Main Goals & Features Tree                    │
+└─────────────────────────────────────────────────────────────────┘
+
+📦 Chronicle Cache
+├── 🎯 CORE GOALS
+│   ├── ⚡ High Performance (650K ops/sec)
+│   ├── 🔒 True Atomicity (multi-entity transactions)
+│   └── 💾 Durability (WAL-based persistence)
+│
+├── 🏗️ ARCHITECTURE
+│   ├── 🔄 Single API Method (List<WALEntry>)
+│   ├── 📦 Unified Storage (GenericEntityStorage)
+│   └── 📝 Write-Ahead Logging (Chronicle Queue)
+│
+├── 🚀 KEY FEATURES
+│   ├── 📊 Batch Processing
+│   │   ├── Atomic multi-entity operations
+│   │   └── Transaction consistency
+│   │
+│   ├── 🗄️ Unified Storage
+│   │   ├── All entities in ONE HashMap
+│   │   ├── No entity-specific handlers
+│   │   └── Zero runtime reflection
+│   │
+│   ├── 🔌 Protocol Support
+│   │   ├── REST API
+│   │   ├── gRPC
+│   │   └── Embedded client
+│   │
+│   └── 📈 Monitoring
+│       ├── Health checks
+│       ├── Statistics
+│       └── Performance metrics
+│
+└── 💡 BENEFITS
+    ├── Simple API (one method for everything)
+    ├── True ACID transactions
+    ├── High throughput
+    └── Easy to maintain (SRP compliance)
+
+
+┌──────────────────────────────────────────────────────┐
+│                  DATA FLOW                           │
+└──────────────────────────────────────────────────────┘
+
+Client Request
+     │
+     ▼
+[API Proxy] ──────► "Always List<WALEntry>"
+     │
+     ▼
+[WAL Write] ──────► "Durability first"
+     │
+     ▼
+[Unified Storage] ► "All entities together"
+     │
+     ▼
+[Database] ───────► "Persistent store"
+
+
+┌──────────────────────────────────────────────────────┐
+│              TRANSACTION EXAMPLE                     │
+└──────────────────────────────────────────────────────┘
+
+BEFORE (Multiple Caches - No Atomicity):
+  Account Cache:     [Account-1] [Account-2]
+  Reserve Cache:     [Reserve-1] [Reserve-2]  
+  Transaction Cache: [Txn-1] [Txn-2]
+  ❌ Partial failures possible
+
+AFTER (Unified Storage - True Atomicity):
+  GenericStorage: [Account-1, Reserve-1, Txn-1, Account-2, ...]
+  ✅ All or nothing - TRUE atomicity

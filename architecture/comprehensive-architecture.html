@@ -1,0 +1,1655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chronicle Cache - Architecture with Method Details</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            color: #667eea;
+            font-size: 2em;
+            margin-bottom: 5px;
+        }
+        
+        .header p {
+            color: #6c757d;
+        }
+        
+        .main-container {
+            display: flex;
+            flex: 1;
+            background: white;
+            margin: 20px;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+            height: calc(100vh - 120px);
+        }
+        
+        .tree-panel {
+            width: 450px;
+            background: #f8f9fa;
+            border-right: 2px solid #dee2e6;
+            overflow-y: auto;
+            padding: 20px;
+        }
+        
+        .content-panel {
+            flex: 1;
+            overflow-y: auto;
+            padding: 30px;
+        }
+        
+        /* Tree Styles */
+        .tree {
+            list-style: none;
+            user-select: none;
+            font-size: 13px;
+        }
+        
+        .tree-item {
+            margin: 1px 0;
+        }
+        
+        .tree-item > ul {
+            margin-left: 20px;
+            display: none;
+        }
+        
+        .tree-item.expanded > ul {
+            display: block;
+        }
+        
+        .tree-node {
+            display: flex;
+            align-items: center;
+            padding: 4px 8px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        
+        .tree-node:hover {
+            background: #e9ecef;
+        }
+        
+        .tree-node.selected {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .tree-icon {
+            width: 18px;
+            margin-right: 6px;
+            font-size: 12px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+        
+        .tree-label {
+            flex: 1;
+            font-size: 13px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .node-type {
+            font-size: 10px;
+            padding: 1px 5px;
+            border-radius: 8px;
+            margin-left: 5px;
+            flex-shrink: 0;
+        }
+        
+        .node-type.method {
+            background: #28a745;
+            color: white;
+        }
+        
+        .node-type.class {
+            background: #007bff;
+            color: white;
+        }
+        
+        .node-type.package {
+            background: #ffc107;
+            color: #212529;
+        }
+        
+        /* Content Styles */
+        .content-section {
+            display: none;
+            animation: fadeIn 0.3s;
+        }
+        
+        .content-section.active {
+            display: block;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .single-goal {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        .single-goal h2 {
+            font-size: 2em;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .single-goal .icon {
+            margin-right: 15px;
+            font-size: 1.2em;
+        }
+        
+        .goal-text {
+            font-size: 1.2em;
+            line-height: 1.6;
+            opacity: 0.95;
+        }
+        
+        .task-detail {
+            background: #f8f9fa;
+            border-left: 5px solid #667eea;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .task-detail h3 {
+            color: #495057;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+        
+        .task-steps {
+            list-style: none;
+            margin: 15px 0;
+        }
+        
+        .task-steps li {
+            padding: 10px;
+            margin: 8px 0;
+            background: white;
+            border-radius: 5px;
+            border-left: 3px solid #764ba2;
+            display: flex;
+            align-items: flex-start;
+        }
+        
+        .step-number {
+            background: #764ba2;
+            color: white;
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 15px;
+            flex-shrink: 0;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .step-text {
+            flex: 1;
+            color: #495057;
+        }
+        
+        .signature-box {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            margin: 20px 0;
+            overflow-x: auto;
+        }
+        
+        .signature-box .return-type {
+            color: #66d9ef;
+        }
+        
+        .signature-box .method-name {
+            color: #a6e22e;
+        }
+        
+        .signature-box .params {
+            color: #fd971f;
+        }
+        
+        .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .detail-card {
+            background: white;
+            border: 2px solid #e9ecef;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .detail-card .label {
+            color: #6c757d;
+            font-size: 0.9em;
+            margin-bottom: 5px;
+        }
+        
+        .detail-card .value {
+            color: #667eea;
+            font-size: 1.5em;
+            font-weight: bold;
+        }
+        
+        .code-example {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        
+        .code-example h4 {
+            color: #495057;
+            margin-bottom: 10px;
+        }
+        
+        .code-example pre {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🏗️ Chronicle Cache Architecture</h1>
+        <p>Classes with Single Goals | Methods with Specific Tasks</p>
+    </div>
+    
+    <div class="main-container">
+        <!-- Tree Panel with Methods as Child Nodes -->
+        <div class="tree-panel">
+            <ul class="tree" id="tree">
+                <!-- API Layer -->
+                <li class="tree-item expanded">
+                    <div class="tree-node" data-target="api-overview">
+                        <span class="tree-icon">🔌</span>
+                        <span class="tree-label">API Layer</span>
+                        <span class="node-type package">PKG</span>
+                    </div>
+                    <ul>
+                        <!-- CacheServiceProxy -->
+                        <li class="tree-item expanded">
+                            <div class="tree-node" data-target="cache-service-proxy">
+                                <span class="tree-icon">📄</span>
+                                <span class="tree-label">CacheServiceProxy</span>
+                                <span class="node-type class">CLS</span>
+                            </div>
+                            <ul>
+                                <li class="tree-item">
+                                    <div class="tree-node" data-target="method-performBatch">
+                                        <span class="tree-icon">⚡</span>
+                                        <span class="tree-label">performCacheOpBatch()</span>
+                                        <span class="node-type method">M</span>
+                                    </div>
+                                </li>
+                            </ul>
+                        </li>
+                        
+                        <!-- CacheServiceProxyImpl -->
+                        <li class="tree-item expanded">
+                            <div class="tree-node" data-target="cache-service-impl">
+                                <span class="tree-icon">📄</span>
+                                <span class="tree-label">CacheServiceProxyImpl</span>
+                                <span class="node-type class">CLS</span>
+                            </div>
+                            <ul>
+                                <li class="tree-item">
+                                    <div class="tree-node" data-target="method-impl-performBatch">
+                                        <span class="tree-icon">⚡</span>
+                                        <span class="tree-label">performCacheOpBatch()</span>
+                                        <span class="node-type method">M</span>
+                                    </div>
+                                </li>
+                                <li class="tree-item">
+                                    <div class="tree-node" data-target="method-convertResponse">
+                                        <span class="tree-icon">🔄</span>
+                                        <span class="tree-label">convertToPublicResponse()</span>
+                                        <span class="node-type method">M</span>
+                                    </div>
+                                </li>
+                                <li class="tree-item">
+                                    <div class="tree-node" data-target="method-initialize">
+                                        <span class="tree-icon">🚀</span>
+                                        <span class="tree-label">initialize()</span>
+                                        <span class="node-type method">M</span>
+                                    </div>
+                                </li>
+                            </ul>
+                        </li>
+                    </ul>
+                </li>
+                
+                <!-- Core Cache Package -->
+                <li class="tree-item expanded">
+                    <div class="tree-node" data-target="core-overview">
+                        <span class="tree-icon">⚙️</span>
+                        <span class="tree-label">Core Cache</span>
+                        <span class="node-type package">PKG</span>
+                    </div>
+                    <ul>
+                        <!-- GenericStorageCacheManager -->
+                        <li class="tree-item expanded">
+                            <div class="tree-node" data-target="storage-manager">
+                                <span class="tree-icon">📄</span>
+                                <span class="tree-label">GenericStorageCacheManager</span>
+                                <span class="node-type class">CLS</span>
+                            </div>
+                            <ul>
+                                <li class="tree-item">
+                                    <div class="tree-node" data-target="method-initialize">
+                                        <span class="tree-icon">🚀</span>
+                                        <span class="tree-label">initialize()</span>
+                                        <span class="node-type method">M</span>
+                                    </div>
+                                </li>
+                                <li class="tree-item">
+                                    <div class="tree-node" data-target="method-processBatch">
+                                        <span class="tree-icon">📦</span>
+                                        <span class="tree-label">processBatch()</span>
+                                        <span class="node-type method">M</span>
+                                    </div>
+                                </li>
+                                <li class="tree-item">
+                                    <div class="tree-node" data-target="method-replayWAL">
+                                        <span class="tree-icon">🔄</span>
+                                        <span class="tree-label">replayWAL()</span>
+                                        <span class="node-type method">M</span>
+                                    </div>
+                                </li>
+                                <li class="tree-item">
+                                    <div class="tree-node" data-target="method-applyToDatabase">
+                                        <span class="tree-icon">💾</span>
+                                        <span class="tree-label">applyToDatabase()</span>
+                                        <span class="node-type method">M</span>
+                                    </div>
+                                </li>
+                                <li class="tree-item">
+                                    <div class="tree-node" data-target="method-convertWAL">
+                                        <span class="tree-icon">🔧</span>
+                                        <span class="tree-label">convertWALToEntity()</span>
+                                        <span class="node-type method">M</span>
+                                    </div>
+                                </li>
+                                <li class="tree-item">
+                                    <div class="tree-node" data-target="method-get">
+                                        <span class="tree-icon">🔍</span>
+                                        <span class="tree-label">get()</span>
+                                        <span class="node-type method">M</span>
+                                    </div>
+                                </li>
+                                <li class="tree-item">
+                                    <div class="tree-node" data-target="method-getAll">
+                                        <span class="tree-icon">📋</span>
+                                        <span class="tree-label">getAll()</span>
+                                        <span class="node-type method">M</span>
+                                    </div>
+                                </li>
+                                <li class="tree-item">
+                                    <div class="tree-node" data-target="method-getStatistics">
+                                        <span class="tree-icon">📊</span>
+                                        <span class="tree-label">getStatistics()</span>
+                                        <span class="node-type method">M</span>
+                                    </div>
+                                </li>
+                                <li class="tree-item">
+                                    <div class="tree-node" data-target="method-shutdown">
+                                        <span class="tree-icon">🛑</span>
+                                        <span class="tree-label">shutdown()</span>
+                                        <span class="node-type method">M</span>
+                                    </div>
+                                </li>
+                            </ul>
+                        </li>
+                        
+                        <!-- CacheEntityTypeSet -->
+                        <li class="tree-item expanded">
+                            <div class="tree-node" data-target="entity-types">
+                                <span class="tree-icon">📄</span>
+                                <span class="tree-label">CacheEntityTypeSet</span>
+                                <span class="node-type class">CLS</span>
+                            </div>
+                            <ul>
+                                <li class="tree-item">
+                                    <div class="tree-node" data-target="method-fromTableName">
+                                        <span class="tree-icon">🔍</span>
+                                        <span class="tree-label">fromTableName()</span>
+                                        <span class="node-type method">M</span>
+                                    </div>
+                                </li>
+                                <li class="tree-item">
+                                    <div class="tree-node" data-target="method-getTypeId">
+                                        <span class="tree-icon">🆔</span>
+                                        <span class="tree-label">getTypeId()</span>
+                                        <span class="node-type method">M</span>
+                                    </div>
+                                </li>
+                            </ul>
+                        </li>
+                        
+                        <!-- CacheEntity -->
+                        <li class="tree-item expanded">
+                            <div class="tree-node" data-target="cache-entity">
+                                <span class="tree-icon">📄</span>
+                                <span class="tree-label">CacheEntity</span>
+                                <span class="node-type class">CLS</span>
+                            </div>
+                            <ul>
+                                <li class="tree-item">
+                                    <div class="tree-node" data-target="method-setField">
+                                        <span class="tree-icon">✏️</span>
+                                        <span class="tree-label">setField()</span>
+                                        <span class="node-type method">M</span>
+                                    </div>
+                                </li>
+                                <li class="tree-item">
+                                    <div class="tree-node" data-target="method-getField">
+                                        <span class="tree-icon">📖</span>
+                                        <span class="tree-label">getField()</span>
+                                        <span class="node-type method">M</span>
+                                    </div>
+                                </li>
+                            </ul>
+                        </li>
+                    </ul>
+                </li>
+                
+                <!-- WAL Package -->
+                <li class="tree-item expanded">
+                    <div class="tree-node" data-target="wal-overview">
+                        <span class="tree-icon">📝</span>
+                        <span class="tree-label">WAL (Write-Ahead Log)</span>
+                        <span class="node-type package">PKG</span>
+                    </div>
+                    <ul>
+                        <!-- WALEntry -->
+                        <li class="tree-item expanded">
+                            <div class="tree-node" data-target="wal-entry">
+                                <span class="tree-icon">📄</span>
+                                <span class="tree-label">WALEntry</span>
+                                <span class="node-type class">CLS</span>
+                            </div>
+                            <ul>
+                                <li class="tree-item">
+                                    <div class="tree-node" data-target="method-builder">
+                                        <span class="tree-icon">🏗️</span>
+                                        <span class="tree-label">Builder.build()</span>
+                                        <span class="node-type method">M</span>
+                                    </div>
+                                </li>
+                            </ul>
+                        </li>
+                        
+                        <!-- WALEntryBatch -->
+                        <li class="tree-item expanded">
+                            <div class="tree-node" data-target="wal-batch">
+                                <span class="tree-icon">📄</span>
+                                <span class="tree-label">WALEntryBatch</span>
+                                <span class="node-type class">CLS</span>
+                            </div>
+                            <ul>
+                                <li class="tree-item">
+                                    <div class="tree-node" data-target="method-batchBuilder">
+                                        <span class="tree-icon">🏗️</span>
+                                        <span class="tree-label">builder()</span>
+                                        <span class="node-type method">M</span>
+                                    </div>
+                                </li>
+                                <li class="tree-item">
+                                    <div class="tree-node" data-target="method-addEntry">
+                                        <span class="tree-icon">➕</span>
+                                        <span class="tree-label">addEntry()</span>
+                                        <span class="node-type method">M</span>
+                                    </div>
+                                </li>
+                                <li class="tree-item">
+                                    <div class="tree-node" data-target="method-getEntries">
+                                        <span class="tree-icon">📋</span>
+                                        <span class="tree-label">getEntries()</span>
+                                        <span class="node-type method">M</span>
+                                    </div>
+                                </li>
+                                <li class="tree-item">
+                                    <div class="tree-node" data-target="method-getTransactionId">
+                                        <span class="tree-icon">🔑</span>
+                                        <span class="tree-label">getTransactionId()</span>
+                                        <span class="node-type method">M</span>
+                                    </div>
+                                </li>
+                            </ul>
+                        </li>
+                        
+                        <!-- WALProducer -->
+                        <li class="tree-item expanded">
+                            <div class="tree-node" data-target="wal-producer">
+                                <span class="tree-icon">📄</span>
+                                <span class="tree-label">WALProducer</span>
+                                <span class="node-type class">CLS</span>
+                            </div>
+                            <ul>
+                                <li class="tree-item">
+                                    <div class="tree-node" data-target="method-append">
+                                        <span class="tree-icon">✍️</span>
+                                        <span class="tree-label">append()</span>
+                                        <span class="node-type method">M</span>
+                                    </div>
+                                </li>
+                                <li class="tree-item">
+                                    <div class="tree-node" data-target="method-flush">
+                                        <span class="tree-icon">💾</span>
+                                        <span class="tree-label">flush()</span>
+                                        <span class="node-type method">M</span>
+                                    </div>
+                                </li>
+                                <li class="tree-item">
+                                    <div class="tree-node" data-target="method-getCurrentOffset">
+                                        <span class="tree-icon">📍</span>
+                                        <span class="tree-label">getCurrentOffset()</span>
+                                        <span class="node-type method">M</span>
+                                    </div>
+                                </li>
+                                <li class="tree-item">
+                                    <div class="tree-node" data-target="method-isHealthy">
+                                        <span class="tree-icon">❤️</span>
+                                        <span class="tree-label">isHealthy()</span>
+                                        <span class="node-type method">M</span>
+                                    </div>
+                                </li>
+                            </ul>
+                        </li>
+                        
+                        <!-- WALConsumer -->
+                        <li class="tree-item expanded">
+                            <div class="tree-node" data-target="wal-consumer">
+                                <span class="tree-icon">📄</span>
+                                <span class="tree-label">WALConsumer</span>
+                                <span class="node-type class">CLS</span>
+                            </div>
+                            <ul>
+                                <li class="tree-item">
+                                    <div class="tree-node" data-target="method-readNextBatch">
+                                        <span class="tree-icon">📖</span>
+                                        <span class="tree-label">readNextBatch()</span>
+                                        <span class="node-type method">M</span>
+                                    </div>
+                                </li>
+                                <li class="tree-item">
+                                    <div class="tree-node" data-target="method-seekTo">
+                                        <span class="tree-icon">🎯</span>
+                                        <span class="tree-label">seekTo()</span>
+                                        <span class="node-type method">M</span>
+                                    </div>
+                                </li>
+                                <li class="tree-item">
+                                    <div class="tree-node" data-target="method-commit">
+                                        <span class="tree-icon">✅</span>
+                                        <span class="tree-label">commit()</span>
+                                        <span class="node-type method">M</span>
+                                    </div>
+                                </li>
+                                <li class="tree-item">
+                                    <div class="tree-node" data-target="method-getLastCommittedOffset">
+                                        <span class="tree-icon">📍</span>
+                                        <span class="tree-label">getLastCommittedOffset()</span>
+                                        <span class="node-type method">M</span>
+                                    </div>
+                                </li>
+                            </ul>
+                        </li>
+                    </ul>
+                </li>
+                
+                <!-- Adapter Package -->
+                <li class="tree-item expanded">
+                    <div class="tree-node" data-target="adapter-overview">
+                        <span class="tree-icon">🔄</span>
+                        <span class="tree-label">Adapters</span>
+                        <span class="node-type package">PKG</span>
+                    </div>
+                    <ul>
+                        <!-- RestCacheAdapter -->
+                        <li class="tree-item expanded">
+                            <div class="tree-node" data-target="rest-adapter">
+                                <span class="tree-icon">📄</span>
+                                <span class="tree-label">RestCacheAdapter</span>
+                                <span class="node-type class">CLS</span>
+                            </div>
+                            <ul>
+                                <li class="tree-item">
+                                    <div class="tree-node" data-target="method-rest-batch">
+                                        <span class="tree-icon">🌐</span>
+                                        <span class="tree-label">@POST /batch</span>
+                                        <span class="node-type method">M</span>
+                                    </div>
+                                </li>
+                                <li class="tree-item">
+                                    <div class="tree-node" data-target="method-rest-health">
+                                        <span class="tree-icon">❤️</span>
+                                        <span class="tree-label">@GET /health</span>
+                                        <span class="node-type method">M</span>
+                                    </div>
+                                </li>
+                            </ul>
+                        </li>
+                        
+                        <!-- GrpcCacheAdapter -->
+                        <li class="tree-item expanded">
+                            <div class="tree-node" data-target="grpc-adapter">
+                                <span class="tree-icon">📄</span>
+                                <span class="tree-label">GrpcCacheAdapter</span>
+                                <span class="node-type class">CLS</span>
+                            </div>
+                            <ul>
+                                <li class="tree-item">
+                                    <div class="tree-node" data-target="method-grpc-batch">
+                                        <span class="tree-icon">📡</span>
+                                        <span class="tree-label">processCacheBatch()</span>
+                                        <span class="node-type method">M</span>
+                                    </div>
+                                </li>
+                                <li class="tree-item">
+                                    <div class="tree-node" data-target="method-grpc-stream">
+                                        <span class="tree-icon">🌊</span>
+                                        <span class="tree-label">streamCacheOps()</span>
+                                        <span class="node-type method">M</span>
+                                    </div>
+                                </li>
+                            </ul>
+                        </li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+        
+        <!-- Content Panel with Single Goal for Classes and Specific Tasks for Methods -->
+        <div class="content-panel" id="content">
+            
+            <!-- Default Content -->
+            <div class="content-section active" id="default">
+                <div class="single-goal">
+                    <h2><span class="icon">🏗️</span>Chronicle Cache Architecture</h2>
+                    <p class="goal-text">
+                        Select a class to see its single goal, or select a method to see its specific tasks.
+                        Each class has ONE responsibility, each method performs ONE specific task.
+                    </p>
+                </div>
+            </div>
+            
+            <!-- CLASS: CacheServiceProxy -->
+            <div class="content-section" id="cache-service-proxy">
+                <div class="single-goal">
+                    <h2><span class="icon">🎯</span>Single Goal</h2>
+                    <p class="goal-text">
+                        Define the public contract for all cache operations, exposing only ONE method to external clients.
+                    </p>
+                </div>
+                <div class="detail-grid">
+                    <div class="detail-card">
+                        <div class="label">Interface Type</div>
+                        <div class="value">Public API</div>
+                    </div>
+                    <div class="detail-card">
+                        <div class="label">Methods</div>
+                        <div class="value">1</div>
+                    </div>
+                    <div class="detail-card">
+                        <div class="label">Responsibility</div>
+                        <div class="value">Contract</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- METHOD: performCacheOpBatch -->
+            <div class="content-section" id="method-performBatch">
+                <div class="task-detail">
+                    <h3>⚡ performCacheOpBatch(List&lt;WALEntry&gt; entries)</h3>
+                    <div class="signature-box">
+                        <span class="return-type">CacheOperationResponse</span> 
+                        <span class="method-name">performCacheOpBatch</span>(<span class="params">List&lt;WALEntry&gt; entries</span>)
+                    </div>
+                    <h4>Specific Task:</h4>
+                    <p>Process a list of cache operations as a single atomic transaction.</p>
+                    
+                    <ul class="task-steps">
+                        <li>
+                            <span class="step-number">1</span>
+                            <span class="step-text">Accept List&lt;WALEntry&gt; (can contain 1 or more entries)</span>
+                        </li>
+                        <li>
+                            <span class="step-number">2</span>
+                            <span class="step-text">Return CacheOperationResponse with success/failure status</span>
+                        </li>
+                    </ul>
+                </div>
+                
+                <div class="code-example">
+                    <h4>Usage Example:</h4>
+                    <pre>// Single entry
+CacheOperationResponse response = proxy.performCacheOpBatch(List.of(entry));
+
+// Multiple entries  
+CacheOperationResponse response = proxy.performCacheOpBatch(List.of(entry1, entry2, entry3));</pre>
+                </div>
+            </div>
+            
+            <!-- CLASS: GenericStorageCacheManager -->
+            <div class="content-section" id="storage-manager">
+                <div class="single-goal">
+                    <h2><span class="icon">🎯</span>Single Goal</h2>
+                    <p class="goal-text">
+                        Manage a unified storage system where ALL entity types are stored in a single GenericEntityStorage, 
+                        ensuring true atomic transactions across different entity types.
+                    </p>
+                </div>
+                <div class="detail-grid">
+                    <div class="detail-card">
+                        <div class="label">Storage Type</div>
+                        <div class="value">Unified</div>
+                    </div>
+                    <div class="detail-card">
+                        <div class="label">Atomicity</div>
+                        <div class="value">100%</div>
+                    </div>
+                    <div class="detail-card">
+                        <div class="label">Performance</div>
+                        <div class="value">650K/s</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- METHOD: processBatch -->
+            <div class="content-section" id="method-processBatch">
+                <div class="task-detail">
+                    <h3>📦 processBatch(WALEntryBatch batch)</h3>
+                    <div class="signature-box">
+                        <span class="return-type">BatchProcessResult</span> 
+                        <span class="method-name">processBatch</span>(<span class="params">WALEntryBatch batch</span>)
+                    </div>
+                    <h4>Specific Task:</h4>
+                    <p>Execute an atomic multi-entity transaction with full ACID guarantees.</p>
+                    
+                    <ul class="task-steps">
+                        <li>
+                            <span class="step-number">1</span>
+                            <span class="step-text">Write entire batch to WAL for durability (walProducer.append)</span>
+                        </li>
+                        <li>
+                            <span class="step-number">2</span>
+                            <span class="step-text">Start database transaction (connection.setAutoCommit(false))</span>
+                        </li>
+                        <li>
+                            <span class="step-number">3</span>
+                            <span class="step-text">Process each entry: convert WAL data to entity</span>
+                        </li>
+                        <li>
+                            <span class="step-number">4</span>
+                            <span class="step-text">Apply each entry to database within transaction</span>
+                        </li>
+                        <li>
+                            <span class="step-number">5</span>
+                            <span class="step-text">Commit database transaction (connection.commit)</span>
+                        </li>
+                        <li>
+                            <span class="step-number">6</span>
+                            <span class="step-text">Update unified cache storage (storage.put for each entity)</span>
+                        </li>
+                        <li>
+                            <span class="step-number">7</span>
+                            <span class="step-text">Return success result or rollback on failure</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- METHOD: replayWAL -->
+            <div class="content-section" id="method-replayWAL">
+                <div class="task-detail">
+                    <h3>🔄 replayWAL()</h3>
+                    <div class="signature-box">
+                        <span class="return-type">void</span> 
+                        <span class="method-name">replayWAL</span>()
+                    </div>
+                    <h4>Specific Task:</h4>
+                    <p>Restore cache state by replaying all WAL entries from persistent storage.</p>
+                    
+                    <ul class="task-steps">
+                        <li>
+                            <span class="step-number">1</span>
+                            <span class="step-text">Read batches from WAL consumer (walConsumer.readNextBatch)</span>
+                        </li>
+                        <li>
+                            <span class="step-number">2</span>
+                            <span class="step-text">Convert each WAL entry to entity object</span>
+                        </li>
+                        <li>
+                            <span class="step-number">3</span>
+                            <span class="step-text">Apply to cache storage without database writes</span>
+                        </li>
+                        <li>
+                            <span class="step-number">4</span>
+                            <span class="step-text">Continue until no more batches available</span>
+                        </li>
+                        <li>
+                            <span class="step-number">5</span>
+                            <span class="step-text">Mark replay as complete</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- METHOD: applyToDatabase -->
+            <div class="content-section" id="method-applyToDatabase">
+                <div class="task-detail">
+                    <h3>💾 applyToDatabase(String dbName, String tableName, WALEntry entry, Connection conn)</h3>
+                    <div class="signature-box">
+                        <span class="return-type">void</span> 
+                        <span class="method-name">applyToDatabase</span>(<span class="params">String dbName, String tableName, WALEntry entry, Connection conn</span>)
+                    </div>
+                    <h4>Specific Task:</h4>
+                    <p>Execute a single database operation as part of a transaction.</p>
+                    
+                    <ul class="task-steps">
+                        <li>
+                            <span class="step-number">1</span>
+                            <span class="step-text">Determine operation type (INSERT, UPDATE, DELETE)</span>
+                        </li>
+                        <li>
+                            <span class="step-number">2</span>
+                            <span class="step-text">Build appropriate SQL statement</span>
+                        </li>
+                        <li>
+                            <span class="step-number">3</span>
+                            <span class="step-text">Create PreparedStatement from connection</span>
+                        </li>
+                        <li>
+                            <span class="step-number">4</span>
+                            <span class="step-text">Set parameters from WAL entry data</span>
+                        </li>
+                        <li>
+                            <span class="step-number">5</span>
+                            <span class="step-text">Execute update (do not commit - part of larger transaction)</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- CLASS: WALProducer -->
+            <div class="content-section" id="wal-producer">
+                <div class="single-goal">
+                    <h2><span class="icon">🎯</span>Single Goal</h2>
+                    <p class="goal-text">
+                        Write WAL entry batches to persistent storage, ensuring durability before any cache or database updates.
+                    </p>
+                </div>
+                <div class="detail-grid">
+                    <div class="detail-card">
+                        <div class="label">Purpose</div>
+                        <div class="value">Durability</div>
+                    </div>
+                    <div class="detail-card">
+                        <div class="label">Operation</div>
+                        <div class="value">Write-Only</div>
+                    </div>
+                    <div class="detail-card">
+                        <div class="label">Storage</div>
+                        <div class="value">Chronicle</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- METHOD: append -->
+            <div class="content-section" id="method-append">
+                <div class="task-detail">
+                    <h3>✍️ append(WALEntryBatch batch)</h3>
+                    <div class="signature-box">
+                        <span class="return-type">long</span> 
+                        <span class="method-name">append</span>(<span class="params">WALEntryBatch batch</span>)
+                    </div>
+                    <h4>Specific Task:</h4>
+                    <p>Write a batch of WAL entries atomically to persistent storage.</p>
+                    
+                    <ul class="task-steps">
+                        <li>
+                            <span class="step-number">1</span>
+                            <span class="step-text">Serialize WALEntryBatch to bytes</span>
+                        </li>
+                        <li>
+                            <span class="step-number">2</span>
+                            <span class="step-text">Write to Chronicle Queue using ExcerptAppender</span>
+                        </li>
+                        <li>
+                            <span class="step-number">3</span>
+                            <span class="step-text">Get index/offset of written entry</span>
+                        </li>
+                        <li>
+                            <span class="step-number">4</span>
+                            <span class="step-text">Return offset for tracking</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- METHOD: flush -->
+            <div class="content-section" id="method-flush">
+                <div class="task-detail">
+                    <h3>💾 flush()</h3>
+                    <div class="signature-box">
+                        <span class="return-type">void</span> 
+                        <span class="method-name">flush</span>()
+                    </div>
+                    <h4>Specific Task:</h4>
+                    <p>Force any buffered WAL writes to persistent storage.</p>
+                    
+                    <ul class="task-steps">
+                        <li>
+                            <span class="step-number">1</span>
+                            <span class="step-text">Force Chronicle Queue to flush buffers</span>
+                        </li>
+                        <li>
+                            <span class="step-number">2</span>
+                            <span class="step-text">Ensure data is written to disk</span>
+                        </li>
+                        <li>
+                            <span class="step-number">3</span>
+                            <span class="step-text">Wait for OS-level sync if required</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- CLASS: WALConsumer -->
+            <div class="content-section" id="wal-consumer">
+                <div class="single-goal">
+                    <h2><span class="icon">🎯</span>Single Goal</h2>
+                    <p class="goal-text">
+                        Read WAL entry batches from persistent storage for cache replay and recovery operations.
+                    </p>
+                </div>
+                <div class="detail-grid">
+                    <div class="detail-card">
+                        <div class="label">Purpose</div>
+                        <div class="value">Recovery</div>
+                    </div>
+                    <div class="detail-card">
+                        <div class="label">Operation</div>
+                        <div class="value">Read-Only</div>
+                    </div>
+                    <div class="detail-card">
+                        <div class="label">Mode</div>
+                        <div class="value">Sequential</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- METHOD: readNextBatch -->
+            <div class="content-section" id="method-readNextBatch">
+                <div class="task-detail">
+                    <h3>📖 readNextBatch()</h3>
+                    <div class="signature-box">
+                        <span class="return-type">List&lt;WALEntryBatch&gt;</span> 
+                        <span class="method-name">readNextBatch</span>()
+                    </div>
+                    <h4>Specific Task:</h4>
+                    <p>Read the next batch of WAL entries from the current position.</p>
+                    
+                    <ul class="task-steps">
+                        <li>
+                            <span class="step-number">1</span>
+                            <span class="step-text">Create ExcerptTailer at current offset</span>
+                        </li>
+                        <li>
+                            <span class="step-number">2</span>
+                            <span class="step-text">Read document from Chronicle Queue</span>
+                        </li>
+                        <li>
+                            <span class="step-number">3</span>
+                            <span class="step-text">Deserialize to WALEntryBatch object</span>
+                        </li>
+                        <li>
+                            <span class="step-number">4</span>
+                            <span class="step-text">Update current offset position</span>
+                        </li>
+                        <li>
+                            <span class="step-number">5</span>
+                            <span class="step-text">Return batch or empty list if no more data</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- CLASS: RestCacheAdapter -->
+            <div class="content-section" id="rest-adapter">
+                <div class="single-goal">
+                    <h2><span class="icon">🎯</span>Single Goal</h2>
+                    <p class="goal-text">
+                        Expose cache operations through RESTful HTTP endpoints, translating HTTP requests to cache operations.
+                    </p>
+                </div>
+                <div class="detail-grid">
+                    <div class="detail-card">
+                        <div class="label">Protocol</div>
+                        <div class="value">HTTP/REST</div>
+                    </div>
+                    <div class="detail-card">
+                        <div class="label">Format</div>
+                        <div class="value">JSON</div>
+                    </div>
+                    <div class="detail-card">
+                        <div class="label">Endpoints</div>
+                        <div class="value">4</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- METHOD: REST batch -->
+            <div class="content-section" id="method-rest-batch">
+                <div class="task-detail">
+                    <h3>🌐 @POST /batch</h3>
+                    <div class="signature-box">
+                        <span class="return-type">Response</span> 
+                        <span class="method-name">processBatch</span>(<span class="params">List&lt;WALEntry&gt; entries</span>)
+                    </div>
+                    <h4>Specific Task:</h4>
+                    <p>Handle HTTP POST request for batch cache operations.</p>
+                    
+                    <ul class="task-steps">
+                        <li>
+                            <span class="step-number">1</span>
+                            <span class="step-text">Receive JSON array of WAL entries</span>
+                        </li>
+                        <li>
+                            <span class="step-number">2</span>
+                            <span class="step-text">Deserialize JSON to List&lt;WALEntry&gt;</span>
+                        </li>
+                        <li>
+                            <span class="step-number">3</span>
+                            <span class="step-text">Call cacheService.performCacheOpBatch()</span>
+                        </li>
+                        <li>
+                            <span class="step-number">4</span>
+                            <span class="step-text">Convert response to JSON</span>
+                        </li>
+                        <li>
+                            <span class="step-number">5</span>
+                            <span class="step-text">Return HTTP 200 OK or 400 Bad Request</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- CLASS: CacheEntity -->
+            <div class="content-section" id="cache-entity">
+                <div class="single-goal">
+                    <h2><span class="icon">🎯</span>Single Goal</h2>
+                    <p class="goal-text">
+                        Serve as a universal container that can hold any entity type with 200+ typed fields,
+                        enabling all entities to be stored in a single unified storage.
+                    </p>
+                </div>
+                <div class="detail-grid">
+                    <div class="detail-card">
+                        <div class="label">String Fields</div>
+                        <div class="value">20</div>
+                    </div>
+                    <div class="detail-card">
+                        <div class="label">Numeric Fields</div>
+                        <div class="value">30</div>
+                    </div>
+                    <div class="detail-card">
+                        <div class="label">Total Fields</div>
+                        <div class="value">200+</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- METHOD: initialize -->
+            <div class="content-section" id="method-initialize">
+                <div class="task-detail">
+                    <h3>🚀 initialize()</h3>
+                    <div class="signature-box">
+                        <span class="return-type">void</span> 
+                        <span class="method-name">initialize</span>()
+                    </div>
+                    <h4>Specific Task:</h4>
+                    <p>Set up the GenericEntityStorage and prepare the cache manager for operations.</p>
+                    
+                    <ul class="task-steps">
+                        <li>
+                            <span class="step-number">1</span>
+                            <span class="step-text">Build GenericEntityStorage with configured capacities</span>
+                        </li>
+                        <li>
+                            <span class="step-number">2</span>
+                            <span class="step-text">Register all entity types with the storage</span>
+                        </li>
+                        <li>
+                            <span class="step-number">3</span>
+                            <span class="step-text">Initialize WAL producer and consumer connections</span>
+                        </li>
+                        <li>
+                            <span class="step-number">4</span>
+                            <span class="step-text">Trigger WAL replay to restore cache state</span>
+                        </li>
+                        <li>
+                            <span class="step-number">5</span>
+                            <span class="step-text">Mark manager as initialized and ready</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- METHOD: get -->
+            <div class="content-section" id="method-get">
+                <div class="task-detail">
+                    <h3>🔍 get(String dbName, String tableName, Object key)</h3>
+                    <div class="signature-box">
+                        <span class="return-type">Object</span> 
+                        <span class="method-name">get</span>(<span class="params">String dbName, String tableName, Object key</span>)
+                    </div>
+                    <h4>Specific Task:</h4>
+                    <p>Retrieve a single entity from the unified cache by its key.</p>
+                    
+                    <ul class="task-steps">
+                        <li>
+                            <span class="step-number">1</span>
+                            <span class="step-text">Map tableName to CacheEntityTypeSet enum</span>
+                        </li>
+                        <li>
+                            <span class="step-number">2</span>
+                            <span class="step-text">Convert key to Long type if necessary</span>
+                        </li>
+                        <li>
+                            <span class="step-number">3</span>
+                            <span class="step-text">Query storage.get(id, entityType)</span>
+                        </li>
+                        <li>
+                            <span class="step-number">4</span>
+                            <span class="step-text">Return entity or null if not found</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- METHOD: getAll -->
+            <div class="content-section" id="method-getAll">
+                <div class="task-detail">
+                    <h3>📋 getAll(String tableName)</h3>
+                    <div class="signature-box">
+                        <span class="return-type">List&lt;?&gt;</span> 
+                        <span class="method-name">getAll</span>(<span class="params">String tableName</span>)
+                    </div>
+                    <h4>Specific Task:</h4>
+                    <p>Retrieve all entities of a specific type from the unified cache.</p>
+                    
+                    <ul class="task-steps">
+                        <li>
+                            <span class="step-number">1</span>
+                            <span class="step-text">Map tableName to CacheEntityTypeSet enum</span>
+                        </li>
+                        <li>
+                            <span class="step-number">2</span>
+                            <span class="step-text">Call storage.getAll(entityType)</span>
+                        </li>
+                        <li>
+                            <span class="step-number">3</span>
+                            <span class="step-text">Return list of all entities for that type</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- METHOD: getStatistics -->
+            <div class="content-section" id="method-getStatistics">
+                <div class="task-detail">
+                    <h3>📊 getStatistics()</h3>
+                    <div class="signature-box">
+                        <span class="return-type">CacheStatistics</span> 
+                        <span class="method-name">getStatistics</span>()
+                    </div>
+                    <h4>Specific Task:</h4>
+                    <p>Collect and return current cache performance metrics.</p>
+                    
+                    <ul class="task-steps">
+                        <li>
+                            <span class="step-number">1</span>
+                            <span class="step-text">Get total batches processed counter</span>
+                        </li>
+                        <li>
+                            <span class="step-number">2</span>
+                            <span class="step-text">Get total entries processed counter</span>
+                        </li>
+                        <li>
+                            <span class="step-number">3</span>
+                            <span class="step-text">Get failed batches counter</span>
+                        </li>
+                        <li>
+                            <span class="step-number">4</span>
+                            <span class="step-text">Get current cache size from storage</span>
+                        </li>
+                        <li>
+                            <span class="step-number">5</span>
+                            <span class="step-text">Return CacheStatistics object with all metrics</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- METHOD: shutdown -->
+            <div class="content-section" id="method-shutdown">
+                <div class="task-detail">
+                    <h3>🛑 shutdown()</h3>
+                    <div class="signature-box">
+                        <span class="return-type">void</span> 
+                        <span class="method-name">shutdown</span>()
+                    </div>
+                    <h4>Specific Task:</h4>
+                    <p>Gracefully shut down the cache manager and release resources.</p>
+                    
+                    <ul class="task-steps">
+                        <li>
+                            <span class="step-number">1</span>
+                            <span class="step-text">Mark manager as shutting down</span>
+                        </li>
+                        <li>
+                            <span class="step-number">2</span>
+                            <span class="step-text">Flush any pending WAL writes</span>
+                        </li>
+                        <li>
+                            <span class="step-number">3</span>
+                            <span class="step-text">Close WAL producer and consumer</span>
+                        </li>
+                        <li>
+                            <span class="step-number">4</span>
+                            <span class="step-text">Release storage resources</span>
+                        </li>
+                        <li>
+                            <span class="step-number">5</span>
+                            <span class="step-text">Log shutdown complete</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- METHOD: getCurrentOffset -->
+            <div class="content-section" id="method-getCurrentOffset">
+                <div class="task-detail">
+                    <h3>📍 getCurrentOffset()</h3>
+                    <div class="signature-box">
+                        <span class="return-type">long</span> 
+                        <span class="method-name">getCurrentOffset</span>()
+                    </div>
+                    <h4>Specific Task:</h4>
+                    <p>Return the current write position in the WAL file.</p>
+                    
+                    <ul class="task-steps">
+                        <li>
+                            <span class="step-number">1</span>
+                            <span class="step-text">Get current ExcerptAppender position</span>
+                        </li>
+                        <li>
+                            <span class="step-number">2</span>
+                            <span class="step-text">Return the index as a long value</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- METHOD: isHealthy -->
+            <div class="content-section" id="method-isHealthy">
+                <div class="task-detail">
+                    <h3>❤️ isHealthy()</h3>
+                    <div class="signature-box">
+                        <span class="return-type">boolean</span> 
+                        <span class="method-name">isHealthy</span>()
+                    </div>
+                    <h4>Specific Task:</h4>
+                    <p>Check if the WAL producer is operational and can accept writes.</p>
+                    
+                    <ul class="task-steps">
+                        <li>
+                            <span class="step-number">1</span>
+                            <span class="step-text">Check Chronicle Queue connection status</span>
+                        </li>
+                        <li>
+                            <span class="step-number">2</span>
+                            <span class="step-text">Verify disk space available</span>
+                        </li>
+                        <li>
+                            <span class="step-number">3</span>
+                            <span class="step-text">Test write capability if needed</span>
+                        </li>
+                        <li>
+                            <span class="step-number">4</span>
+                            <span class="step-text">Return true if healthy, false otherwise</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- METHOD: commit -->
+            <div class="content-section" id="method-commit">
+                <div class="task-detail">
+                    <h3>✅ commit()</h3>
+                    <div class="signature-box">
+                        <span class="return-type">void</span> 
+                        <span class="method-name">commit</span>()
+                    </div>
+                    <h4>Specific Task:</h4>
+                    <p>Commit the current read offset to mark entries as processed.</p>
+                    
+                    <ul class="task-steps">
+                        <li>
+                            <span class="step-number">1</span>
+                            <span class="step-text">Get current tailer position</span>
+                        </li>
+                        <li>
+                            <span class="step-number">2</span>
+                            <span class="step-text">Store offset in persistent metadata</span>
+                        </li>
+                        <li>
+                            <span class="step-number">3</span>
+                            <span class="step-text">Update internal committed offset marker</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- METHOD: getLastCommittedOffset -->
+            <div class="content-section" id="method-getLastCommittedOffset">
+                <div class="task-detail">
+                    <h3>📍 getLastCommittedOffset()</h3>
+                    <div class="signature-box">
+                        <span class="return-type">long</span> 
+                        <span class="method-name">getLastCommittedOffset</span>()
+                    </div>
+                    <h4>Specific Task:</h4>
+                    <p>Retrieve the last successfully committed read offset.</p>
+                    
+                    <ul class="task-steps">
+                        <li>
+                            <span class="step-number">1</span>
+                            <span class="step-text">Read committed offset from persistent store</span>
+                        </li>
+                        <li>
+                            <span class="step-number">2</span>
+                            <span class="step-text">Return the offset value</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- METHOD: getTypeId -->
+            <div class="content-section" id="method-getTypeId">
+                <div class="task-detail">
+                    <h3>🆔 getTypeId()</h3>
+                    <div class="signature-box">
+                        <span class="return-type">int</span> 
+                        <span class="method-name">getTypeId</span>()
+                    </div>
+                    <h4>Specific Task:</h4>
+                    <p>Return the unique numeric identifier for this entity type.</p>
+                    
+                    <ul class="task-steps">
+                        <li>
+                            <span class="step-number">1</span>
+                            <span class="step-text">Return the pre-assigned type ID constant</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- METHOD: batchBuilder -->
+            <div class="content-section" id="method-batchBuilder">
+                <div class="task-detail">
+                    <h3>🏗️ builder()</h3>
+                    <div class="signature-box">
+                        <span class="return-type">WALEntryBatch.Builder</span> 
+                        <span class="method-name">builder</span>()
+                    </div>
+                    <h4>Specific Task:</h4>
+                    <p>Create a new builder instance for constructing WALEntryBatch objects.</p>
+                    
+                    <ul class="task-steps">
+                        <li>
+                            <span class="step-number">1</span>
+                            <span class="step-text">Create new Builder instance</span>
+                        </li>
+                        <li>
+                            <span class="step-number">2</span>
+                            <span class="step-text">Initialize with empty entry list</span>
+                        </li>
+                        <li>
+                            <span class="step-number">3</span>
+                            <span class="step-text">Generate unique transaction ID</span>
+                        </li>
+                        <li>
+                            <span class="step-number">4</span>
+                            <span class="step-text">Return builder for method chaining</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- METHOD: getEntries -->
+            <div class="content-section" id="method-getEntries">
+                <div class="task-detail">
+                    <h3>📋 getEntries()</h3>
+                    <div class="signature-box">
+                        <span class="return-type">List&lt;WALEntry&gt;</span> 
+                        <span class="method-name">getEntries</span>()
+                    </div>
+                    <h4>Specific Task:</h4>
+                    <p>Return the list of WAL entries contained in this batch.</p>
+                    
+                    <ul class="task-steps">
+                        <li>
+                            <span class="step-number">1</span>
+                            <span class="step-text">Return immutable view of entry list</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- CLASS: CacheEntityTypeSet -->
+            <div class="content-section" id="entity-types">
+                <div class="single-goal">
+                    <h2><span class="icon">🎯</span>Single Goal</h2>
+                    <p class="goal-text">
+                        Define all entity types as an enum implementing IEntityTypeSet, providing a centralized mapping between table names and entity types.
+                    </p>
+                </div>
+                <div class="detail-grid">
+                    <div class="detail-card">
+                        <div class="label">Type</div>
+                        <div class="value">Enum</div>
+                    </div>
+                    <div class="detail-card">
+                        <div class="label">Entity Types</div>
+                        <div class="value">10+</div>
+                    </div>
+                    <div class="detail-card">
+                        <div class="label">Purpose</div>
+                        <div class="value">Type Safety</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- METHOD: fromTableName -->
+            <div class="content-section" id="method-fromTableName">
+                <div class="task-detail">
+                    <h3>🔍 fromTableName(String tableName)</h3>
+                    <div class="signature-box">
+                        <span class="return-type">CacheEntityTypeSet</span> 
+                        <span class="method-name">fromTableName</span>(<span class="params">String tableName</span>)
+                    </div>
+                    <h4>Specific Task:</h4>
+                    <p>Map a database table name to its corresponding entity type enum.</p>
+                    
+                    <ul class="task-steps">
+                        <li>
+                            <span class="step-number">1</span>
+                            <span class="step-text">Convert tableName to lowercase</span>
+                        </li>
+                        <li>
+                            <span class="step-number">2</span>
+                            <span class="step-text">Match against known table names</span>
+                        </li>
+                        <li>
+                            <span class="step-number">3</span>
+                            <span class="step-text">Return corresponding enum value</span>
+                        </li>
+                        <li>
+                            <span class="step-number">4</span>
+                            <span class="step-text">Default to GENERIC_ENTITY if unknown</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- METHOD: setField -->
+            <div class="content-section" id="method-setField">
+                <div class="task-detail">
+                    <h3>✏️ setField(String fieldName, Object value)</h3>
+                    <div class="signature-box">
+                        <span class="return-type">void</span> 
+                        <span class="method-name">setField</span>(<span class="params">String fieldName, Object value</span>)
+                    </div>
+                    <h4>Specific Task:</h4>
+                    <p>Map a dynamic field name to the appropriate typed field in CacheEntity.</p>
+                    
+                    <ul class="task-steps">
+                        <li>
+                            <span class="step-number">1</span>
+                            <span class="step-text">Convert fieldName to lowercase for matching</span>
+                        </li>
+                        <li>
+                            <span class="step-number">2</span>
+                            <span class="step-text">Match against known field mappings (name→string1, balance→double1, etc.)</span>
+                        </li>
+                        <li>
+                            <span class="step-number">3</span>
+                            <span class="step-text">Convert value to appropriate type</span>
+                        </li>
+                        <li>
+                            <span class="step-number">4</span>
+                            <span class="step-text">Set the corresponding typed field</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const treeNodes = document.querySelectorAll('.tree-node');
+            const contentSections = document.querySelectorAll('.content-section');
+            
+            // Handle tree node clicks
+            treeNodes.forEach(node => {
+                node.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    
+                    // Toggle expanded state for parent
+                    const parentItem = this.parentElement;
+                    if (parentItem.querySelector('ul')) {
+                        parentItem.classList.toggle('expanded');
+                    }
+                    
+                    // Update selected state
+                    treeNodes.forEach(n => n.classList.remove('selected'));
+                    this.classList.add('selected');
+                    
+                    // Show corresponding content
+                    const targetId = this.dataset.target;
+                    if (targetId) {
+                        contentSections.forEach(section => {
+                            section.classList.remove('active');
+                        });
+                        const targetSection = document.getElementById(targetId);
+                        if (targetSection) {
+                            targetSection.classList.add('active');
+                        }
+                    } else {
+                        // Show default content
+                        contentSections.forEach(section => {
+                            section.classList.remove('active');
+                        });
+                        document.getElementById('default').classList.add('active');
+                    }
+                });
+            });
+            
+            // Keyboard shortcuts
+            document.addEventListener('keydown', function(e) {
+                if (e.ctrlKey && e.key === 'e') {
+                    // Expand all
+                    document.querySelectorAll('.tree-item').forEach(item => {
+                        item.classList.add('expanded');
+                    });
+                } else if (e.ctrlKey && e.key === 'c') {
+                    // Collapse all
+                    document.querySelectorAll('.tree-item').forEach(item => {
+                        if (!item.querySelector('.selected')) {
+                            item.classList.remove('expanded');
+                        }
+                    });
+                }
+            });
+        });
+    </script>
+</body>
+</html>
